@@ -1,68 +1,99 @@
-// src/hooks/useAddToCart.js
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { addToCart } from "../Redux/Slice/cartSlice";
+import { addToCart, getOrCreateCartId } from "../Redux/Slice/cartSlice";
+
+const getProductId = (product) =>
+  product?.productId ?? product?.productID ?? product?.ProductId ?? product?.id;
+
+const getErrorMessage = (error) => {
+  if (typeof error === "string" && error.trim()) return error;
+  if (typeof error?.message === "string" && error.message.trim()) return error.message;
+  if (typeof error?.data?.message === "string") return error.data.message;
+  if (typeof error?.response?.data?.message === "string") return error.response.data.message;
+  return "Failed to add product to cart";
+};
 
 const useAddToCart = () => {
   const dispatch = useDispatch();
-  const cartItems = useSelector((state) => state.cart.cart);
-  const cartId = useSelector((state) => state.cart.cartId);
+  const cartItems = useSelector((state) =>
+    Array.isArray(state.cart?.cart) ? state.cart.cart : [],
+  );
+  const cartId = useSelector((state) => state.cart?.cartId || null);
   const [loading, setLoading] = useState(false);
 
-  const addProductToCart = async (product) => {
-    const prodId = product.productId ?? product.productID ?? product.id;
-    const isProductInCart = cartItems.some((item) => {
-      const itemId = item.productId ?? item.productID ?? item.ProductId;
-      return (
-        itemId !== undefined &&
-        itemId !== null &&
-        prodId !== undefined &&
-        prodId !== null &&
-        String(itemId) === String(prodId)
-      );
-    });
+  const addProductToCart = useCallback(
+    async (product) => {
+      const productId = getProductId(product);
+      if (productId === undefined || productId === null || productId === "") {
+        throw new Error("ProductId is required");
+      }
 
-    if (isProductInCart) {
-      throw new Error("Product is already in the cart");
-    } 
+      setLoading(true);
 
-    setLoading(true);
+      try {
+        // Do not use a stale/non-Tel Redux value directly. The slice and all
+        // cart endpoints use this same canonical cart-ID resolver.
+        const activeCartId = getOrCreateCartId(cartId);
+        const customer = (() => {
+          try {
+            const raw = localStorage.getItem("customer");
+            return raw ? JSON.parse(raw) : null;
+          } catch {
+            return null;
+          }
+        })();
 
-    const cartData = {
-      cartId,
-      productID: product.productID,
-      price: product.price,
-      quantity: 1,
-    };
+        const cartData = {
+          CartId: activeCartId,
+          ProductId: String(productId),
+          ProductName: product?.productName ?? product?.ProductName ?? product?.name ?? "",
+          ImagePath:
+            product?.productImage ??
+            product?.imagePath ??
+            product?.ProductImage ??
+            product?.image ??
+            "",
+          Price: Number.parseFloat(product?.price ?? product?.Price ?? 0) || 0,
+          Quantity: 1,
+          CustomerId:
+            customer?.customerAccountNumber ??
+            customer?.CustomerAccountNumber ??
+            customer?.customerId ??
+            null,
+        };
 
-    try {
-      await dispatch(addToCart(cartData)).unwrap();
+        // Duplicate products are intentionally allowed. cartSlice merges the
+        // line and increases its quantity instead of creating a second row.
+        await dispatch(addToCart(cartData)).unwrap();
 
-      // Optional: Google Tag Manager or similar
-      window.dataLayer = window.dataLayer || [];
-      window.dataLayer.push({
-        event: "add_to_cart",
-        ecommerce: {
-          items: [
-            {
-              item_name: product.productName,
-              item_id: product.productID,
-              price: product.price,
-              quantity: 1,
+        if (typeof window !== "undefined") {
+          window.dataLayer = window.dataLayer || [];
+          window.dataLayer.push({
+            event: "add_to_cart",
+            ecommerce: {
+              items: [
+                {
+                  item_name: cartData.ProductName,
+                  item_id: cartData.ProductId,
+                  price: cartData.Price,
+                  quantity: cartData.Quantity,
+                },
+              ],
             },
-          ],
-        },
-      });
-      
-      return true; // Success
-    } catch (error) {
-      throw new Error(error?.message || "Failed to add product to cart");
-    } finally {
-      setLoading(false);
-    }
-  };
+          });
+        }
 
-  return { addProductToCart, loading };
+        return true;
+      } catch (error) {
+        throw new Error(getErrorMessage(error));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [cartId, dispatch],
+  );
+
+  return { addProductToCart, loading, cartItems };
 };
 
 export default useAddToCart;
