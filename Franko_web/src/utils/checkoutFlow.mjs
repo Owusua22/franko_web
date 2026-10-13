@@ -83,6 +83,17 @@ export function assertOrderAccepted(raw) {
   return value;
 }
 
+/** Validates whether a payment verification code is a valid 6-digit numeric string */
+export function isValidVerificationCode(code) {
+  if (typeof code !== 'string') return false;
+  return /^\d{6}$/.test(code.trim());
+}
+
+/** Checks whether a verification session has expired */
+export function isVerificationExpired(createdAt, expiryMs = 10 * 60 * 1000, now = Date.now()) {
+  return now - Number(createdAt || 0) > expiryMs;
+}
+
 export const readJSON = (key, fallback = null) => {
   try {
     const raw = localStorage.getItem(key);

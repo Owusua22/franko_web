@@ -1,0 +1,13 @@
+{
+  "name": "franko-api-lambda",
+  "version": "1.0.0",
+  "description": "AWS Lambda function for Franko Trading API Gateway with MoMo Payment Verification and Transflow Integration",
+  "main": "index.mjs",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test.mjs"
+  },
+  "dependencies": {
+    "axios": "^1.9.0"
+  }
+}

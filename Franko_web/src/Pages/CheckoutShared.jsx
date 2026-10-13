@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Input, Radio, Divider, message, Modal } from 'antd';
 import { validateCart, checkOutOrder, updateOrderDelivery, saveCheckoutDetails, saveAddressDetails, FRIENDLY_PRICE_UPDATE_MSG } from '../Redux/Slice/orderSlice';
-import { validateAccount, debitCustomer, checkTransactionStatus, resetPaymentState } from '../Redux/Slice/paymentSlice';
+import { validateAccount, debitCustomer, checkTransactionStatus, resetPaymentState, generatePaymentCode, verifyPaymentCodeAndInitiateDebit, verifyTransactionResult } from '../Redux/Slice/paymentSlice';
 import { clearCart, getCartById } from '../Redux/Slice/cartSlice';
 import CheckoutForm from '../Component/CheckoutForm';
 import AuthModal from '../Component/AuthModal';
@@ -136,7 +136,7 @@ const checkoutStyles = `
 .co-btn-primary,.co-btn-danger,.co-btn-secondary{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:var(--co-radius);font-weight:700;cursor:pointer;transition:.15s;font-family:inherit}.co-btn-primary{padding:14px;background:var(--co-green);color:#fff;border:0;font-size:15px}.co-btn-primary:hover{background:var(--co-green-mid)}.co-btn-primary:disabled{background:#d1d5db;cursor:not-allowed}.co-btn-danger{padding:12px;background:#fff;color:var(--co-red);border:1px solid #fecaca;font-size:14px}.co-btn-danger:hover{background:#fef2f2}.co-btn-secondary{padding:9px 12px;background:#fff;color:var(--co-dark);border:1px solid var(--co-border);font-size:12px}.co-btn-secondary:hover{background:var(--co-bg)}.co-sticky-bottom{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--co-border);padding:12px 16px;z-index:40;box-shadow:0 -2px 12px #0001;display:block}@media(min-width:1024px){.co-sticky-bottom{display:none}}.co-desktop-btn{display:none;margin-top:20px}@media(min-width:1024px){.co-desktop-btn{display:block}}
 .co-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:60px 24px;min-height:400px}.co-empty-icon{width:72px;height:72px;border-radius:50%;background:var(--co-bg);display:grid;place-items:center;margin-bottom:16px;border:1px solid var(--co-border)}.co-empty-title{font-size:22px;font-weight:800;margin-bottom:8px}.co-empty-desc{font-size:14px;color:var(--co-light);margin-bottom:24px}
 .co-loading-overlay{position:fixed;inset:0;background:#0008;backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:10000}.co-loading-card{background:#fff;border-radius:var(--co-radius-xl);padding:32px;display:flex;flex-direction:column;align-items:center;gap:16px;box-shadow:0 20px 60px #0003}.co-spinner{width:40px;height:40px;border:4px solid var(--co-green-light);border-top-color:var(--co-green-600);border-radius:50%;animation:co-spin .8s linear infinite}@keyframes co-spin{to{transform:rotate(360deg)}}.co-loading-text{font-size:15px;font-weight:700;color:var(--co-mid)}
-.pm-modal-wrap{display:flex;flex-direction:column;max-height:calc(100vh - 32px)}.pm-header-compact{background:linear-gradient(135deg,#0d3d20,#14532d 50%,#166534);padding:16px 20px;display:flex;align-items:center;justify-content:space-between}.co-tel .pm-header-compact{background:linear-gradient(135deg,#8f0c16,#BB1420 55%,#A80F1B)}.pm-header-left{display:flex;align-items:center;gap:10px}.pm-logo-small{height:28px;object-fit:contain;filter:brightness(0) invert(1)}.pm-company-small{font-size:10px;font-weight:700;color:#ffffff80;text-transform:uppercase;margin:0}.pm-ref-small{font-size:10px;color:#ffffff99;margin:3px 0 0}.pm-header-right{text-align:right}.pm-amount-label-small{font-size:9px;font-weight:700;color:#ffffff80;text-transform:uppercase;margin:0}.pm-amount-value-small{font-size:24px;font-weight:900;color:#fff;margin:0}.pm-body{padding:16px;display:flex;flex-direction:column;gap:12px;background:#fff;overflow-y:auto}.pm-field{border:1.5px solid #e5e7eb;border-radius:10px;overflow:hidden}.pm-field-header{display:flex;align-items:center;gap:8px;padding:9px 12px;background:#f9fafb;border-bottom:1px solid #f0f0f0}.pm-field-step-num{width:20px;height:20px;background:var(--co-green);color:#fff;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:900}.pm-field-label{font-size:12px;font-weight:800}.pm-field-body{padding:12px}.pm-validation{font-size:11px;font-weight:600;margin-top:6px;display:flex;align-items:center;gap:4px;color:#d97706}.pm-account-status{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;font-size:12px;font-weight:600}.pm-account-valid{background:#f0fdf4;border:1px solid #86efac;color:#14532d}.pm-account-invalid{background:#fef2f2;border:1px solid #fca5a5;color:var(--co-red)}.pm-account-checking{background:#f9fafb;border:1px solid #e5e7eb;color:#6b7280}.pm-account-icon{width:20px;height:20px;flex-shrink:0}.pm-networks{display:flex;flex-direction:column;gap:6px}.pm-network-tile{display:flex;align-items:center;gap:10px;padding:10px 12px;border:2px solid #e5e7eb;border-radius:10px;cursor:pointer;background:#fff;min-height:56px}.pm-network-logo{width:36px;height:36px;object-fit:contain;border-radius:6px}.pm-network-info{flex:1}.pm-network-name{font-size:13px;font-weight:800;margin:0}.pm-network-sub{font-size:10px;color:var(--co-light);margin:2px 0 0}.pm-pay-btn{width:100%;padding:14px;background:linear-gradient(135deg,#14532d,#166534);color:#fff;border:0;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;min-height:50px}.co-tel .pm-pay-btn{background:linear-gradient(135deg,#8f0c16,#BB1420)}.pm-pay-btn:disabled{background:#9ca3af;cursor:not-allowed}.pm-security{display:flex;align-items:center;justify-content:center;gap:5px;font-size:10px;font-weight:600;color:#6b7280;padding:7px;background:#f9fafb;border-radius:6px}.pm-info-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px}.pm-info-title{font-size:11px;font-weight:800;color:var(--co-green);margin:0 0 6px}.pm-info-list{font-size:11px;color:#16a34a;margin:0;padding-left:18px;display:grid;gap:4px}
+.pm-modal-wrap{display:flex;flex-direction:column;max-height:calc(100vh - 32px)}.pm-header-compact{background:linear-gradient(135deg,#0d3d20,#14532d 50%,#166534);padding:16px 20px;display:flex;align-items:center;justify-content:space-between}.co-tel .pm-header-compact{background:linear-gradient(135deg,#8f0c16,#BB1420 55%,#A80F1B)}.pm-header-left{display:flex;align-items:center;gap:10px}.pm-logo-small{height:28px;object-fit:contain;filter:brightness(0) invert(1)}.pm-company-small{font-size:10px;font-weight:700;color:#ffffff80;text-transform:uppercase;margin:0}.pm-ref-small{font-size:10px;color:#ffffff99;margin:3px 0 0}.pm-header-right{text-align:right}.pm-amount-label-small{font-size:9px;font-weight:700;color:#ffffff80;text-transform:uppercase;margin:0}.pm-amount-value-small{font-size:24px;font-weight:900;color:#fff;margin:0}.pm-body{padding:16px;display:flex;flex-direction:column;gap:12px;background:#fff;overflow-y:auto}.pm-field{border:1.5px solid #e5e7eb;border-radius:10px;overflow:hidden}.pm-field-header{display:flex;align-items:center;gap:8px;padding:9px 12px;background:#f9fafb;border-bottom:1px solid #f0f0f0}.pm-field-step-num{width:20px;height:20px;background:var(--co-green);color:#fff;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:900}.pm-field-label{font-size:12px;font-weight:800}.pm-field-body{padding:12px}.pm-validation{font-size:11px;font-weight:600;margin-top:6px;display:flex;align-items:center;gap:4px;color:#d97706}.pm-account-status{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;font-size:12px;font-weight:700}.pm-account-valid{background:#f0fdf4;border:1px solid #bbf7d0;color:var(--co-green)}.pm-account-checking{background:#fffbeb;border:1px solid #fde68a;color:#d97706}.pm-account-invalid{background:#fef2f2;border:1px solid #fecaca;color:var(--co-red)}.pm-account-icon{width:18px;height:18px;flex-shrink:0}.pm-networks{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.pm-network-tile{display:flex;flex-direction:column;align-items:center;text-align:center;padding:10px 6px;border:2px solid #e5e7eb;border-radius:8px;cursor:pointer;background:#fff;min-height:56px}.pm-network-logo{width:36px;height:36px;object-fit:contain;border-radius:6px}.pm-network-info{flex:1}.pm-network-name{font-size:13px;font-weight:800;margin:0}.pm-network-sub{font-size:10px;color:var(--co-light);margin:2px 0 0}.pm-pay-btn{width:100%;padding:14px;background:linear-gradient(135deg,#14532d,#166534);color:#fff;border:0;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;min-height:50px}.co-tel .pm-pay-btn{background:linear-gradient(135deg,#8f0c16,#BB1420)}.pm-pay-btn:disabled{background:#9ca3af;cursor:not-allowed}.pm-security{display:flex;align-items:center;justify-content:center;gap:5px;font-size:10px;font-weight:600;color:#6b7280;padding:7px;background:#f9fafb;border-radius:6px}.pm-info-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px}.pm-info-title{font-size:11px;font-weight:800;color:var(--co-green);margin:0 0 6px}.pm-info-list{font-size:11px;color:#16a34a;margin:0;padding-left:18px;display:grid;gap:4px}
 .pm-pending-anim{position:relative;width:78px;height:78px}.pm-pending-ring-outer,.pm-pending-ring-spin{position:absolute;inset:0;border-radius:50%}.pm-pending-ring-outer{border:3px solid #dcfce7}.pm-pending-ring-spin{border:3px solid transparent;border-top-color:var(--co-green-600);animation:co-spin 1s linear infinite}.pm-pending-ring-inner{position:absolute;inset:9px;border:2px solid #f0fdf4;border-radius:50%;display:grid;place-items:center;background:#dcfce7}.co-guide-steps-wrap{background:#fff;border:1px solid #f0f0f0;border-radius:var(--co-radius);overflow:hidden}.co-guide-steps-header{padding:10px 14px;border-bottom:1px solid #f5f5f5}.co-guide-steps-body{padding:14px;max-height:280px;overflow:auto}.co-guide-step{display:flex;gap:12px;align-items:flex-start;margin-bottom:10px}.co-guide-step-num{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:11px;font-weight:900;flex-shrink:0}.co-guide-step-text{font-size:13px;color:var(--co-mid);margin:3px 0 0;line-height:1.4}
 `;
 export default function CheckoutShared({ telecel = false }) {
@@ -159,7 +159,10 @@ export default function CheckoutShared({ telecel = false }) {
   const [number, setNumber] = useState('');
   const [network, setNetwork] = useState(telecel ? 'vodafone' : '');
   const [validatedFor, setValidatedFor] = useState('');
-  const [stage, setStage] = useState('form'); // form, payment, pending, review, posting, support
+  const [stage, setStage] = useState('form'); // form, payment, verify, pending, review, posting, support
+  const [verificationCode, setVerificationCode] = useState('');
+  const [enteredCode, setEnteredCode] = useState('');
+  const [verificationError, setVerificationError] = useState('');
   const [busy, setBusy] = useState(false);
   const [auth, setAuth] = useState(false);
   const [error, setError] = useState('');
@@ -275,36 +278,56 @@ export default function CheckoutShared({ telecel = false }) {
       message.error('Please contact support with your reference. Do not pay again.');
     }
   };
+
+  // Step 9: Lambda verifies the transaction result
   const poll = current => {
     if (finished.current || !active.current) return;
     pollTimer.current = setTimeout(async () => {
       if (requestActive.current || finished.current || !active.current) return;
       requestActive.current = true;
       try {
-        const response = await dispatch(checkTransactionStatus({ refNo: current.orderId })).unwrap();
+        const response = await dispatch(verifyTransactionResult({ refNo: current.orderId })).unwrap();
         if (finished.current || !active.current) return;
-        const result = paymentOutcome(response);
-        if (result === 'success') { await postOrder(current, true); return; }
-        if (result === 'failed') { cancel(response?.responseMessage || 'Payment declined.'); return; }
+        const result = paymentOutcome(response?.data || response);
+        // Step 10: Franko marks the order as paid only after payment is confirmed
+        if (result === 'success' || response?.verified === true || response?.isConfirmed === true) {
+          await postOrder(current, true);
+          return;
+        }
+        if (result === 'failed' || response?.status === 'failed') {
+          cancel(response?.responseMessage || response?.data?.responseMessage || 'Payment declined.');
+          return;
+        }
       } catch { /* transient network errors are not cancellation */ }
       finally { requestActive.current = false; }
       if (Date.now() < pollDeadline.current) poll(current);
       else setStage('review'); // unresolved is not a failed payment
     }, 5000);
   };
+
   const checkAgain = async () => {
     const current = currentRef.current;
     if (!current || busy || finished.current) return;
     setBusy(true);
     try {
-      const response = await dispatch(checkTransactionStatus({ refNo: current.orderId })).unwrap();
-      const result = paymentOutcome(response);
-      if (result === 'success') await postOrder(current, true);
-      else if (result === 'failed') cancel(response?.responseMessage || 'Payment declined.');
-      else setError('Still waiting for payment confirmation. Please approve on your phone and check again.');
-    } catch { setError('Cannot check payment right now. Please try again; do not pay twice.'); }
-    finally { if (active.current) setBusy(false); }
+      // Step 9: Lambda verifies the transaction result
+      const response = await dispatch(verifyTransactionResult({ refNo: current.orderId })).unwrap();
+      const result = paymentOutcome(response?.data || response);
+      // Step 10: Franko marks the order as paid only after payment is confirmed
+      if (result === 'success' || response?.verified === true || response?.isConfirmed === true) {
+        await postOrder(current, true);
+      } else if (result === 'failed' || response?.status === 'failed') {
+        cancel(response?.responseMessage || response?.data?.responseMessage || 'Payment declined.');
+      } else {
+        setError('Still waiting for payment confirmation. Please approve on your phone and check again.');
+      }
+    } catch {
+      setError('Cannot check payment right now. Please try again; do not pay twice.');
+    } finally {
+      if (active.current) setBusy(false);
+    }
   };
+
   const begin = async override => {
     if (submitting.current || finished.current) return;
     const c = override && customerId(override) ? override : customer;
@@ -345,30 +368,112 @@ export default function CheckoutShared({ telecel = false }) {
       } else setError(e?.message || String(e || 'Could not validate cart.'));
     } finally { submitting.current = false; if (active.current) setBusy(false); }
   };
+
+  // Steps 1, 2, 3: Customer enters MoMo number -> Franko sends request to Lambda -> Lambda generates random 6-digit code
   const pay = async () => {
     if (submitting.current || !validNumber || !validatedAccount || !network || !currentRef.current) return;
     submitting.current = true;
     setBusy(true); setError('');
+    setVerificationError('');
     const current = currentRef.current;
     current.checkout = { ...current.checkout, PaymentAccountNumber: msisdn(number), paymentService: NETWORKS[network] };
     dispatch(saveCheckoutDetails(current.checkout));
     try {
       await dispatch(validateCart({ cartId: current.checkout.Cartid, customerid: current.checkout.customerId, orderDate: current.checkout.orderDate, paymentMode: 'Mobile Money', paymentService: current.checkout.paymentService, paymentAccountNumber: current.checkout.PaymentAccountNumber, customerAccountType: current.checkout.customerAccountType, items: items.map(i => ({ productId: String(i.productId ?? i.productID ?? i.ProductId ?? i.id ?? ''), price: price(i), quantity: qty(i) })) })).unwrap();
-      setStage('pending');
-      const response = await dispatch(debitCustomer({ refNo: current.orderId, msisdn: msisdn(number), amount, network: NETWORKS[network], narration: items.map(i => i.productName || i.ProductName || 'Item').join(', ').slice(0,120) })).unwrap();
-      if (!active.current || finished.current) return;
-      const result = paymentOutcome(response);
-      if (result === 'success') await postOrder(current, true); // immediate: no polling delay
-      else if (result === 'failed') cancel(response?.responseMessage || 'Payment declined.');
-      else { pollDeadline.current = Date.now() + 60000; poll(current); }
+
+      // Step 2: Franko sends the request to AWS Lambda
+      const narration = items.map(i => i.productName || i.ProductName || 'Item').join(', ').slice(0, 120);
+      const genRes = await dispatch(generatePaymentCode({
+        refNo: current.orderId,
+        msisdn: msisdn(number),
+        amount,
+        network: NETWORKS[network],
+        narration,
+      })).unwrap();
+
+      // Step 3 & 4: Lambda generates random 6-digit code -> App displays modal: “Verify Your Payment”
+      const code = genRes?.code || genRes?.data?.verificationCode || genRes?.verificationCode || '';
+      setVerificationCode(code);
+      setEnteredCode('');
+      setStage('verify');
+      message.info('Verification code generated. Please enter it to authorize payment.');
     } catch (e) {
-      if (e?.isPriceUpdate) { dispatch(clearCart()); setItems([]); setStage('form'); setError(FRIENDLY_PRICE_UPDATE_MSG); }
-      else {
-        // If DebitCustomer timed out, payment may have gone through. Never re-debit blindly.
-        setStage('review'); setError(`Payment outcome is unknown. Check your payment status; do not pay again. Reference: ${current.orderId}`);
+      if (e?.isPriceUpdate) {
+        dispatch(clearCart()); setItems([]); setStage('form'); setError(FRIENDLY_PRICE_UPDATE_MSG);
+      } else {
+        setError(e?.message || String(e || 'Could not initiate payment verification.'));
       }
     } finally { submitting.current = false; if (active.current) setBusy(false); }
   };
+
+  // Steps 5, 6, 7, 8: Customer enters code and taps Verify -> Lambda checks code & initiates payment through Transflow
+  const verifyAndPay = async () => {
+    if (submitting.current || !enteredCode || enteredCode.length !== 6 || !currentRef.current) return;
+    submitting.current = true;
+    setBusy(true);
+    setVerificationError('');
+    const current = currentRef.current;
+    const narration = items.map(i => i.productName || i.ProductName || 'Item').join(', ').slice(0, 120);
+    try {
+      // Step 5 & 6 & 7: Lambda checks whether code matches and has not expired; if correct, initiates payment through Transflow
+      const verifyRes = await dispatch(verifyPaymentCodeAndInitiateDebit({
+        refNo: current.orderId,
+        code: enteredCode.trim(),
+        msisdn: msisdn(number),
+        amount,
+        network: NETWORKS[network],
+        narration,
+      })).unwrap();
+
+      if (!active.current || finished.current) return;
+
+      // Step 8: Customer receives actual MoMo prompt and approves it using MoMo PIN
+      setStage('pending');
+      const transflowData = verifyRes?.data || verifyRes;
+      const result = paymentOutcome(transflowData);
+      if (result === 'success') {
+        await postOrder(current, true);
+      } else if (result === 'failed') {
+        cancel(transflowData?.responseMessage || 'Payment declined.');
+      } else {
+        pollDeadline.current = Date.now() + 60000;
+        poll(current);
+      }
+    } catch (e) {
+      const errMsg = e?.message || e?.error?.message || String(e || 'Verification failed. Please try again.');
+      setVerificationError(errMsg);
+      message.error(errMsg);
+    } finally {
+      submitting.current = false;
+      if (active.current) setBusy(false);
+    }
+  };
+
+  const resendCode = async () => {
+    if (busy || !currentRef.current) return;
+    setBusy(true);
+    setVerificationError('');
+    const current = currentRef.current;
+    const narration = items.map(i => i.productName || i.ProductName || 'Item').join(', ').slice(0, 120);
+    try {
+      const genRes = await dispatch(generatePaymentCode({
+        refNo: current.orderId,
+        msisdn: msisdn(number),
+        amount,
+        network: NETWORKS[network],
+        narration,
+      })).unwrap();
+      const code = genRes?.code || genRes?.data?.verificationCode || genRes?.verificationCode || '';
+      setVerificationCode(code);
+      setEnteredCode('');
+      message.success('A new verification code has been generated.');
+    } catch (e) {
+      setVerificationError(e?.message || 'Failed to resend code');
+    } finally {
+      if (active.current) setBusy(false);
+    }
+  };
+
   const handleAuthSuccess = c => {
     setAuth(false);
     if (!different && customerId(c)) {
@@ -378,7 +483,17 @@ export default function CheckoutShared({ telecel = false }) {
     // Wait for the visible form to reflect the new account before submitting.
     message.info('Signed in. Review the recipient details and place your order.');
   };
-  const flow = { items, customer, loggedIn, different, toggleRecipient, recipient, setRecipient, phone, setPhone, note, setNote, delivery, setDelivery, method, setMethod, subtotal, shipping, serviceCharge, amount, error, stage, setStage, busy, begin, number, setNumber, network, setNetwork, validatedAccount, validNumber, account, pay, checkAgain, cancel, auth, setAuth, handleAuthSuccess, currentRef, isAgent: String(customer?.accountType || '').toLowerCase() === 'agent', telecel };
+  const flow = {
+    items, customer, loggedIn, different, toggleRecipient, recipient, setRecipient,
+    phone, setPhone, note, setNote, delivery, setDelivery, method, setMethod,
+    subtotal, shipping, serviceCharge, amount, error, stage, setStage, busy,
+    begin, number, setNumber, network, setNetwork, validatedAccount, validNumber,
+    account, pay, verifyAndPay, resendCode, verificationCode, enteredCode,
+    setEnteredCode, verificationError, setVerificationError, checkAgain, cancel,
+    auth, setAuth, handleAuthSuccess, currentRef,
+    isAgent: String(customer?.accountType || '').toLowerCase() === 'agent',
+    telecel,
+  };
   return <CheckoutView flow={flow} />;
 }
 
@@ -401,7 +516,8 @@ function CheckoutView({ flow }) {
     phone, setPhone, note, setNote, delivery, setDelivery, method, setMethod,
     subtotal, shipping, serviceCharge, amount, error, stage, busy, begin,
     number, setNumber, network, setNetwork, validatedAccount, validNumber, account,
-    pay, checkAgain, cancel, auth, setAuth, handleAuthSuccess, currentRef, isAgent, telecel,
+    pay, verifyAndPay, resendCode, verificationCode, enteredCode, setEnteredCode,
+    verificationError, checkAgain, cancel, auth, setAuth, handleAuthSuccess, currentRef, isAgent, telecel,
   } = flow;
   const freeDelivery = Number(delivery.fee) === 0 && String(delivery.feeDisplay || '').toLowerCase().includes('free');
   const naDelivery = Number(delivery.fee) === 0 && (!delivery.feeDisplay || String(delivery.feeDisplay).toLowerCase() === 'n/a');
@@ -440,10 +556,223 @@ function CheckoutView({ flow }) {
     </div>
     {!!items.length && <div className="co-sticky-bottom"><button className="co-btn-primary" onClick={checkout} disabled={busy || stage !== 'form'}><ShoppingBagIcon style={{width:20,height:20}}/>{paymentLabel}</button></div>}
     <Modal open={missing} centered onCancel={() => setMissing(false)} title="Complete Required Fields" footer={<button className="co-btn-primary" onClick={() => setMissing(false)}>Got It</button>}>Please provide your recipient name, contact number, delivery address and payment method.</Modal>
+
+    {/* STAGE 1: ENTER PHONE NUMBER & SELECT NETWORK */}
     <Modal open={stage === 'payment'} centered width={440} footer={null} onCancel={() => flow.setStage('form')} closable={!busy} maskClosable={!busy} styles={{body:{padding:0},content:{borderRadius:16,overflow:'hidden'}}}><div className="pm-modal-wrap"><div className="pm-header-compact"><div className="pm-header-left"><img src={frankoLogo} alt="Franko" className="pm-logo-small"/><div><p className="pm-company-small">Franko Trading</p><p className="pm-ref-small">{orderId}</p></div></div><div className="pm-header-right"><p className="pm-amount-label-small">Charged now</p><p className="pm-amount-value-small">{money(amount)}</p></div></div><div className="pm-body"><div className="pm-field"><div className="pm-field-header"><span className="pm-field-step-num">1</span><span className="pm-field-label">Mobile Money Number</span></div><div className="pm-field-body"><Input placeholder={telecel ? "0501234567" : "233XXXXXXXXX"} value={number || (telecel ? "" : "233")} onChange={e => {let value=e.target.value.replace(/\D/g,'');if(telecel){if(value.startsWith('233'))value=`0${value.slice(3)}`;setNumber(value.slice(0,10));}else{if(value.startsWith('0'))value=`233${value.slice(1)}`;if(!value.startsWith('233'))value='233';setNumber(value.slice(0,13));}}} prefix={<PhoneIcon style={{width:16,height:16,color:'#888'}}/>} size="large" maxLength={13}/><div className="pm-validation">{!validNumber ? 'Enter your mobile money number' : !network ? 'Select your network below' : ''}</div></div></div>
       <div className="pm-field"><div className="pm-field-header"><span className="pm-field-step-num">2</span><span className="pm-field-label">{telecel ? "Telecel Cash" : "Network Provider"}</span></div><div className="pm-field-body"><Radio.Group value={network} onChange={e => setNetwork(e.target.value)} style={{width:'100%'}}><div className="pm-networks">{(telecel ? netTiles.filter(n => n.value === 'vodafone') : netTiles).map(n => <label className="pm-network-tile" key={n.value} style={network===n.value ? {background:n.bg,borderColor:n.border}:{}}><Radio value={n.value} style={{display:'none'}}/><img src={n.logo} alt={n.name} className="pm-network-logo"/><div className="pm-network-info"><p className="pm-network-name">{n.name}</p><p className="pm-network-sub">{n.sub}</p></div>{network===n.value && <CheckCircleSolid style={{width:22,height:22,color:n.color}}/>}</label>)}</div></Radio.Group></div></div>
       {validNumber && network && <div className={`pm-account-status ${validatedAccount?'pm-account-valid':account.validating?'pm-account-checking':'pm-account-invalid'}`}>{validatedAccount ? <CheckCircleSolid className="pm-account-icon"/> : account.validating ? <div className="co-spinner" style={{width:16,height:16,borderWidth:2}}/> : <XCircleSolid className="pm-account-icon"/>}<div>{validatedAccount ? `Account Valid${account.validateAccountData?.name ? ` · ${account.validateAccountData.name}`:''}` : account.validating ? 'Validating account…' : account.validateAccountData?.responseMessage || account.error || 'Checking account…'}</div></div>}
-      <button className="pm-pay-btn" onClick={pay} disabled={busy || !validNumber || !validatedAccount}><LockClosedIcon style={{width:16,height:16}}/>Pay {money(amount)}</button><div className="pm-security"><ShieldCheckIcon style={{width:12,height:12}}/>Secured by GhIPSS</div><div className="pm-info-box"><p className="pm-info-title"><CheckCircleIcon style={{width:12,height:12}}/> What happens next?</p><ol className="pm-info-list"><li>We validate current product prices before payment</li><li>You'll receive a payment prompt on your phone</li><li>Approve the request and we confirm it automatically</li></ol></div></div></div></Modal>
+      <button className="pm-pay-btn" onClick={pay} disabled={busy || !validNumber || !validatedAccount}><LockClosedIcon style={{width:16,height:16}}/>Pay {money(amount)}</button><div className="pm-security"><ShieldCheckIcon style={{width:12,height:12}}/>Secured by GhIPSS</div><div className="pm-info-box"><p className="pm-info-title"><CheckCircleIcon style={{width:12,height:12}}/> What happens next?</p><ol className="pm-info-list"><li>We validate current product prices before payment</li><li>You'll receive a 6-digit payment verification code</li><li>Verify the code to initiate Transflow MoMo prompt</li></ol></div></div></div></Modal>
+
+    {/* STAGE 2: “Verify Your Payment” MODAL (Step 4 & 5) */}
+    <Modal
+      open={stage === 'verify'}
+      centered
+      width={440}
+      footer={null}
+      onCancel={() => { if (!busy) flow.setStage('payment'); }}
+      closable={!busy}
+      maskClosable={!busy}
+      styles={{ body: { padding: 0 }, content: { borderRadius: 16, overflow: 'hidden' } }}
+    >
+      <div className="pm-modal-wrap">
+        <div className="pm-header-compact">
+          <div className="pm-header-left">
+            <img src={frankoLogo} alt="Franko" className="pm-logo-small" />
+            <div>
+              <p className="pm-company-small">Franko Trading</p>
+              <p className="pm-ref-small">{orderId}</p>
+            </div>
+          </div>
+          <div className="pm-header-right">
+            <p className="pm-amount-label-small">Charged now</p>
+            <p className="pm-amount-value-small">{money(amount)}</p>
+          </div>
+        </div>
+
+        <div className="pm-body" style={{ padding: '20px 20px 24px' }}>
+          <div style={{ textAlign: 'center', marginBottom: 16 }}>
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: '50%',
+                background: '#dcfce7',
+                color: '#16a34a',
+                display: 'grid',
+                placeItems: 'center',
+                margin: '0 auto 10px',
+              }}
+            >
+              <ShieldCheckIcon style={{ width: 28, height: 28 }} />
+            </div>
+            <h3 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 6px', color: '#1a1a1a' }}>
+              Verify Your Payment
+            </h3>
+            <p style={{ fontSize: 13, color: '#6b7280', margin: 0, lineHeight: 1.45 }}>
+              Please enter the 6-digit verification code to authorize your Mobile Money payment of <strong>{money(amount)}</strong> for <strong>{number}</strong>.
+            </p>
+          </div>
+
+          {verificationCode && (
+            <div
+              style={{
+                background: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                borderRadius: 8,
+                padding: '10px 14px',
+                marginBottom: 16,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#166534', textTransform: 'uppercase' }}>
+                  Verification Code
+                </div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: '#14532d', letterSpacing: 3 }}>
+                  {verificationCode}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEnteredCode(verificationCode)}
+                style={{
+                  background: '#16a34a',
+                  color: '#fff',
+                  border: 0,
+                  borderRadius: 6,
+                  padding: '5px 10px',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Auto-fill
+              </button>
+            </div>
+          )}
+
+          {verificationError && (
+            <div
+              style={{
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderRadius: 8,
+                padding: '8px 12px',
+                marginBottom: 14,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                fontSize: 12,
+                color: '#dc2626',
+                fontWeight: 600,
+              }}
+            >
+              <ExclamationTriangleIcon style={{ width: 16, height: 16, flexShrink: 0 }} />
+              <span>{verificationError}</span>
+            </div>
+          )}
+
+          <div style={{ marginBottom: 18 }}>
+            <label
+              style={{
+                display: 'block',
+                fontSize: 12,
+                fontWeight: 700,
+                color: '#374151',
+                marginBottom: 6,
+              }}
+            >
+              Enter 6-Digit Code
+            </label>
+            <Input
+              placeholder="123456"
+              value={enteredCode}
+              onChange={e => {
+                const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                setEnteredCode(val);
+                flow.setVerificationError('');
+              }}
+              onPressEnter={verifyAndPay}
+              size="large"
+              maxLength={6}
+              autoFocus
+              style={{
+                fontSize: 22,
+                fontWeight: 800,
+                textAlign: 'center',
+                letterSpacing: 8,
+                height: 52,
+                borderRadius: 10,
+              }}
+            />
+          </div>
+
+          <button
+            className="pm-pay-btn"
+            onClick={verifyAndPay}
+            disabled={busy || enteredCode.length !== 6}
+            style={{ width: '100%', marginBottom: 12 }}
+          >
+            {busy ? (
+              <>
+                <div className="co-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
+                Verifying &amp; Initiating Payment…
+              </>
+            ) : (
+              <>
+                <LockClosedIcon style={{ width: 16, height: 16 }} />
+                Verify
+              </>
+            )}
+          </button>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+            <button
+              type="button"
+              onClick={resendCode}
+              disabled={busy}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#166534',
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: busy ? 'not-allowed' : 'pointer',
+                padding: 0,
+                textDecoration: 'underline',
+              }}
+            >
+              Resend Code
+            </button>
+            <button
+              type="button"
+              onClick={() => { if (!busy) flow.setStage('payment'); }}
+              disabled={busy}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#6b7280',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: busy ? 'not-allowed' : 'pointer',
+                padding: 0,
+              }}
+            >
+              Back to Payment Method
+            </button>
+          </div>
+
+          <div className="pm-security" style={{ marginTop: 14 }}>
+            <ShieldCheckIcon style={{ width: 12, height: 12 }} />
+            Secured by GhIPSS · Transflow Payment Gateway
+          </div>
+        </div>
+      </div>
+    </Modal>
+
+    {/* STAGE 3: PENDING APPROVAL (Step 8: Customer receives MoMo prompt on phone and approves with PIN) */}
     <Modal open={['pending','posting','review','support'].includes(stage)} centered width={520} footer={null} closable={false} maskClosable={false}><div style={{display:'flex',flexDirection:'column',gap:14,textAlign:'center'}}>{stage==='posting' ? <><CheckCircleSolid style={{width:45,height:45,color:'#16a34a',margin:'auto'}}/><h3>Payment Confirmed!</h3><p>Creating your order and redirecting…</p></> : stage==='support' ? <><ExclamationTriangleIcon style={{width:45,height:45,color:'#d97706',margin:'auto'}}/><h3>Order needs assistance</h3><p>{error}</p></> : <><div className="pm-pending-anim" style={{margin:'auto'}}><div className="pm-pending-ring-outer"/><div className="pm-pending-ring-spin"/><div className="pm-pending-ring-inner"><PhoneIcon style={{width:26,height:26,color:'#16a34a'}}/></div></div><h3>{stage==='review'?'Approve Your Payment':'Awaiting Approval'}</h3><p>Check your phone for the payment prompt</p><p>Reference: {orderId} · Number: {number} · Amount: {money(amount)}</p>{stage==='review' && <><div className="co-guide-steps-wrap"><div className="co-guide-steps-header"><strong>Step-by-step approval</strong></div><div className="co-guide-steps-body" style={{textAlign:'left'}}>{(approval[network] || []).map((step,i) => <div className="co-guide-step" key={step}><span className="co-guide-step-num" style={{background:'#16a34a'}}>{i+1}</span><p className="co-guide-step-text">{step}</p></div>)}</div></div><button className="co-btn-primary" onClick={checkAgain} disabled={busy}>I've Approved — Confirm Payment</button><button className="co-btn-danger" onClick={() => cancel('Customer cancelled before confirmation')} disabled={busy}>Cancel Order</button></>}</>}</div></Modal>
     <AuthModal open={auth} onClose={() => setAuth(false)} onSuccess={handleAuthSuccess} currentCustomer={customer} initialMode="signup" allowGuest={false} autoLoginAfterSignup notice="Create an account or sign in before placing your order."/>
   </div></>;

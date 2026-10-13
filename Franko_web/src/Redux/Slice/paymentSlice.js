@@ -19,7 +19,85 @@ const toErrorPayload = (error, fallback) => {
 
 // ==================== ASYNC THUNKS ====================
 
-// 1️⃣ Debit Customer
+// 1️⃣ Generate Payment Code (Lambda generates 6-digit random code)
+export const generatePaymentCode = createAsyncThunk(
+  "payment/generatePaymentCode",
+  async ({ refNo, msisdn, amount, network, narration }, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.post(
+        "",
+        { refNo, msisdn, amount, network, narration },
+        {
+          params: {
+            endpoint: "/Payment/Generate-Verification-Code",
+            target: LAMBDA_TARGET,
+            PSP,
+          },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        toErrorPayload(error, "Failed to generate payment verification code")
+      );
+    }
+  }
+);
+
+// 2️⃣ Verify Payment Code & Initiate Transflow Payment
+export const verifyPaymentCodeAndInitiateDebit = createAsyncThunk(
+  "payment/verifyPaymentCodeAndInitiateDebit",
+  async (
+    { refNo, code, msisdn, amount, network, narration },
+    { rejectWithValue }
+  ) => {
+    try {
+      const response = await axiosInstance.post(
+        "",
+        { refNo, code, msisdn, amount, network, narration },
+        {
+          params: {
+            endpoint: "/Payment/Verify-Payment-Code",
+            target: LAMBDA_TARGET,
+            PSP,
+          },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        toErrorPayload(error, "Payment code verification failed")
+      );
+    }
+  }
+);
+
+// 3️⃣ Verify Transaction Result (Lambda queries Transflow & verifies confirmation)
+export const verifyTransactionResult = createAsyncThunk(
+  "payment/verifyTransactionResult",
+  async ({ refNo }, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.post(
+        "",
+        { refNo },
+        {
+          params: {
+            endpoint: "/Payment/Verify-Transaction-Status",
+            target: LAMBDA_TARGET,
+            PSP,
+          },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        toErrorPayload(error, "Failed to verify transaction status")
+      );
+    }
+  }
+);
+
+// 4️⃣ Debit Customer (Original proxy thunk preserved for full compatibility)
 export const debitCustomer = createAsyncThunk(
   "payment/debitCustomer",
   async ({ refNo, msisdn, amount, network, narration }, { rejectWithValue }) => {
@@ -44,7 +122,7 @@ export const debitCustomer = createAsyncThunk(
   }
 );
 
-// 2️⃣ Validate Account
+// 5️⃣ Validate Account
 export const validateAccount = createAsyncThunk(
   "payment/validateAccount",
   async ({ msisdn, network }, { rejectWithValue }) => {
@@ -67,7 +145,7 @@ export const validateAccount = createAsyncThunk(
   }
 );
 
-// 3️⃣ Check Transaction Status
+// 6️⃣ Check Transaction Status (Original proxy thunk preserved)
 export const checkTransactionStatus = createAsyncThunk(
   "payment/checkTransactionStatus",
   async ({ refNo }, { rejectWithValue }) => {
@@ -90,7 +168,7 @@ export const checkTransactionStatus = createAsyncThunk(
   }
 );
 
-// 4️⃣ Debit by Customer Network Provider ID
+// 7️⃣ Debit by Customer Network Provider ID
 export const debitByCustomerNetworkProviderId = createAsyncThunk(
   "payment/debitByCustomerNetworkProviderId",
   async (
@@ -123,7 +201,7 @@ export const debitByCustomerNetworkProviderId = createAsyncThunk(
   }
 );
 
-// 5️⃣ Get Account Hold Name
+// 8️⃣ Get Account Hold Name
 export const getAccountHoldName = createAsyncThunk(
   "payment/getAccountHoldName",
   async ({ msisdn, network }, { rejectWithValue }) => {
@@ -146,7 +224,7 @@ export const getAccountHoldName = createAsyncThunk(
   }
 );
 
-// 6️⃣ Get PSP Transactions By Company
+// 9️⃣ Get PSP Transactions By Company
 export const getPSPTransactionsByCompany = createAsyncThunk(
   "payment/getPSPTransactionsByCompany",
   async ({ from, to }, { rejectWithValue }) => {
@@ -177,10 +255,15 @@ const initialState = {
   debitNetworkData: null,
   accountHoldName: null,
   pspTransactionsReport: null,
+  verificationCodeData: null,
+  verifiedPaymentData: null,
+  verifiedTransactionStatus: null,
 
   loading: false,
   validating: false,
   checkingStatus: false,
+  generatingCode: false,
+  verifyingCode: false,
   error: null,
 };
 
@@ -195,10 +278,15 @@ const paymentSlice = createSlice({
       state.debitNetworkData = null;
       state.accountHoldName = null;
       state.pspTransactionsReport = null;
+      state.verificationCodeData = null;
+      state.verifiedPaymentData = null;
+      state.verifiedTransactionStatus = null;
 
       state.loading = false;
       state.validating = false;
       state.checkingStatus = false;
+      state.generatingCode = false;
+      state.verifyingCode = false;
       state.error = null;
     },
     resetPSPTransactionsReport: (state) => {
@@ -213,9 +301,61 @@ const paymentSlice = createSlice({
       state.transactionStatus = null;
       state.checkingStatus = false;
     },
+    resetVerificationCodeData: (state) => {
+      state.verificationCodeData = null;
+      state.generatingCode = false;
+      state.verifyingCode = false;
+    },
   },
   extraReducers: (builder) => {
     builder
+      // Generate Payment Code
+      .addCase(generatePaymentCode.pending, (state) => {
+        state.generatingCode = true;
+        state.error = null;
+      })
+      .addCase(generatePaymentCode.fulfilled, (state, action) => {
+        state.generatingCode = false;
+        state.verificationCodeData = action.payload;
+      })
+      .addCase(generatePaymentCode.rejected, (state, action) => {
+        state.generatingCode = false;
+        state.error = action.payload || action.error?.message;
+      })
+
+      // Verify Payment Code & Initiate Debit
+      .addCase(verifyPaymentCodeAndInitiateDebit.pending, (state) => {
+        state.verifyingCode = true;
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(verifyPaymentCodeAndInitiateDebit.fulfilled, (state, action) => {
+        state.verifyingCode = false;
+        state.loading = false;
+        state.verifiedPaymentData = action.payload;
+        state.debitCustomerData = action.payload?.data || action.payload;
+      })
+      .addCase(verifyPaymentCodeAndInitiateDebit.rejected, (state, action) => {
+        state.verifyingCode = false;
+        state.loading = false;
+        state.error = action.payload || action.error?.message || "Payment verification failed";
+      })
+
+      // Verify Transaction Result
+      .addCase(verifyTransactionResult.pending, (state) => {
+        state.checkingStatus = true;
+        state.error = null;
+      })
+      .addCase(verifyTransactionResult.fulfilled, (state, action) => {
+        state.checkingStatus = false;
+        state.verifiedTransactionStatus = action.payload;
+        state.transactionStatus = action.payload?.data || action.payload;
+      })
+      .addCase(verifyTransactionResult.rejected, (state, action) => {
+        state.checkingStatus = false;
+        state.error = action.payload || action.error?.message;
+      })
+
       // Debit Customer
       .addCase(debitCustomer.pending, (state) => {
         state.loading = true;
@@ -307,6 +447,7 @@ export const {
   resetPSPTransactionsReport,
   resetValidateAccountData,
   resetTransactionStatus,
+  resetVerificationCodeData,
 } = paymentSlice.actions;
 
 export default paymentSlice.reducer;
