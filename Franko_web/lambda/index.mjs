@@ -1,6 +1,7 @@
 // Lambda: index.mjs
 import axios from "axios";
 import { createHmac, randomInt } from "crypto";
+import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
 
 // ═══════════════════════════════════════════════════════════════════
 // IN-MEMORY STORAGE
@@ -124,6 +125,248 @@ const createResponse = (statusCode, body, allowedOrigin = "*") => ({
   },
   body: JSON.stringify(body),
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// PHONE & SMS HELPERS
+// ═══════════════════════════════════════════════════════════════════
+const formatGhanaMSISDN = (phone) => {
+  let clean = String(phone || "").replace(/\D/g, "");
+  if (clean.startsWith("0")) clean = `233${clean.slice(1)}`;
+  if (!clean.startsWith("233")) clean = `233${clean}`;
+  return clean;
+};
+
+const maskPhoneNumber = (phone) => {
+  const str = String(phone || "").trim();
+  if (str.length < 7) return str;
+  const start = str.slice(0, str.startsWith("233") ? 5 : 3);
+  const end = str.slice(-2);
+  return `${start} ••• ••${end}`;
+};
+
+const sendSMS = async ({ msisdn, code, amount, refNo }) => {
+  const formattedPhone = formatGhanaMSISDN(msisdn);
+  const rawSenderId = process.env.AWS_SNS_SENDER_ID || process.env.SMS_SENDER_ID || "Franko";
+  const awsSenderId = rawSenderId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 11) || "Franko";
+  const senderId = process.env.SMS_SENDER_ID || "Franko";
+  const messageText = `Your Franko Trading payment verification code is ${code}. Amount: GH₵${Number(amount || 0).toFixed(2)}. Valid for 10 minutes. Do not share this code.`;
+
+  console.log(`📱 [SMS DISPATCH] To: +${formattedPhone} (refNo: ${refNo}): "${messageText}"`);
+
+  // 1. AWS SMS SENDER (AWS SNS) - Preferred / Primary SMS Provider
+  const isAwsExplicit = process.env.USE_AWS_SNS === "true" || process.env.SMS_PROVIDER === "aws";
+  const isAwsLambdaEnv = Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.AWS_EXECUTION_ENV);
+  const hasAwsCreds = Boolean(
+    (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) ||
+    (process.env.AWS_SNS_ACCESS_KEY_ID && process.env.AWS_SNS_SECRET_ACCESS_KEY)
+  );
+
+  if (process.env.USE_AWS_SNS !== "false" && (isAwsExplicit || isAwsLambdaEnv || hasAwsCreds)) {
+    try {
+      const region =
+        process.env.AWS_SNS_REGION ||
+        process.env.AWS_REGION ||
+        process.env.AWS_DEFAULT_REGION ||
+        "us-east-1";
+
+      const clientConfig = { region };
+      if (process.env.AWS_SNS_ACCESS_KEY_ID && process.env.AWS_SNS_SECRET_ACCESS_KEY) {
+        clientConfig.credentials = {
+          accessKeyId: process.env.AWS_SNS_ACCESS_KEY_ID,
+          secretAccessKey: process.env.AWS_SNS_SECRET_ACCESS_KEY,
+        };
+      }
+
+      const snsClient = new SNSClient(clientConfig);
+
+      const messageAttributes = {
+        "AWS.SNS.SMS.SMSType": {
+          DataType: "String",
+          StringValue: "Transactional",
+        },
+        "AWS.SNS.SMS.SenderID": {
+          DataType: "String",
+          StringValue: awsSenderId,
+        },
+      };
+
+      if (process.env.AWS_SNS_ORIGINATION_IDENTITY) {
+        messageAttributes["AWS.SNS.SMS.OriginationIdentity"] = {
+          DataType: "String",
+          StringValue: process.env.AWS_SNS_ORIGINATION_IDENTITY,
+        };
+      }
+
+      if (process.env.AWS_SNS_ENTITY_ID) {
+        messageAttributes["AWS.SNS.SMS.EntityId"] = {
+          DataType: "String",
+          StringValue: process.env.AWS_SNS_ENTITY_ID,
+        };
+      }
+
+      if (process.env.AWS_SNS_TEMPLATE_ID) {
+        messageAttributes["AWS.SNS.SMS.TemplateId"] = {
+          DataType: "String",
+          StringValue: process.env.AWS_SNS_TEMPLATE_ID,
+        };
+      }
+
+      const publishParams = {
+        PhoneNumber: `+${formattedPhone}`,
+        Message: messageText,
+        MessageAttributes: messageAttributes,
+      };
+
+      const snsResponse = await snsClient.send(new PublishCommand(publishParams));
+      console.log(`✅ SMS sent via AWS SNS to +${formattedPhone}: MessageId ${snsResponse.MessageId}`);
+      return {
+        success: true,
+        provider: "aws-sns",
+        messageId: snsResponse.MessageId,
+        data: snsResponse,
+      };
+    } catch (err) {
+      console.error(`❌ AWS SNS SMS failed:`, err.message);
+    }
+  }
+
+  // 2. ARKESEL (Ghana SMS Gateway - Fallback)
+  if (process.env.ARKESEL_API_KEY) {
+    try {
+      const res = await axios.post(
+        "https://sms.arkesel.com/api/v2/sms/send",
+        {
+          sender: senderId,
+          message: messageText,
+          recipients: [formattedPhone],
+        },
+        {
+          headers: {
+            "api-key": process.env.ARKESEL_API_KEY,
+            "Content-Type": "application/json",
+          },
+          timeout: 10000,
+        }
+      );
+      console.log(`✅ SMS sent via Arkesel to +${formattedPhone}:`, res.data);
+      return { success: true, provider: "arkesel", data: res.data };
+    } catch (err) {
+      console.error(`❌ Arkesel SMS failed:`, err.message, err.response?.data);
+    }
+  }
+
+  // 3. HUBTEL (Ghana SMS Gateway)
+  if (process.env.HUBTEL_CLIENT_ID && process.env.HUBTEL_CLIENT_SECRET) {
+    try {
+      const auth = Buffer.from(
+        `${process.env.HUBTEL_CLIENT_ID}:${process.env.HUBTEL_CLIENT_SECRET}`
+      ).toString("base64");
+      const res = await axios.get("https://smsc.hubtel.com/v1/messages/send", {
+        params: {
+          From: senderId,
+          To: formattedPhone,
+          Content: messageText,
+        },
+        headers: {
+          Authorization: `Basic ${auth}`,
+        },
+        timeout: 10000,
+      });
+      console.log(`✅ SMS sent via Hubtel to +${formattedPhone}:`, res.data);
+      return { success: true, provider: "hubtel", data: res.data };
+    } catch (err) {
+      console.error(`❌ Hubtel SMS failed:`, err.message, err.response?.data);
+    }
+  }
+
+  // 4. MNOTIFY (Ghana SMS Gateway)
+  if (process.env.MNOTIFY_API_KEY) {
+    try {
+      const res = await axios.post(
+        "https://api.mnotify.com/api/sms/quick",
+        {
+          recipient: [formattedPhone],
+          sender: senderId,
+          message: messageText,
+        },
+        {
+          headers: {
+            key: process.env.MNOTIFY_API_KEY,
+            "Content-Type": "application/json",
+          },
+          timeout: 10000,
+        }
+      );
+      console.log(`✅ SMS sent via mNotify to +${formattedPhone}:`, res.data);
+      return { success: true, provider: "mnotify", data: res.data };
+    } catch (err) {
+      console.error(`❌ mNotify SMS failed:`, err.message, err.response?.data);
+    }
+  }
+
+  // 5. TWILIO
+  if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM_NUMBER) {
+    try {
+      const auth = Buffer.from(
+        `${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`
+      ).toString("base64");
+      const url = `https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_ACCOUNT_SID}/Messages.json`;
+      const params = new URLSearchParams();
+      params.append("To", `+${formattedPhone}`);
+      params.append("From", process.env.TWILIO_FROM_NUMBER);
+      params.append("Body", messageText);
+
+      const res = await axios.post(url, params.toString(), {
+        headers: {
+          Authorization: `Basic ${auth}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        timeout: 10000,
+      });
+      console.log(`✅ SMS sent via Twilio to +${formattedPhone}:`, res.data?.sid);
+      return { success: true, provider: "twilio", data: res.data };
+    } catch (err) {
+      console.error(`❌ Twilio SMS failed:`, err.message, err.response?.data);
+    }
+  }
+
+  // 6. CUSTOM SMS GATEWAY
+  if (process.env.SMS_API_URL) {
+    try {
+      const headers = { "Content-Type": "application/json" };
+      if (process.env.SMS_API_KEY) {
+        headers["Authorization"] = `Bearer ${process.env.SMS_API_KEY}`;
+        headers["X-Api-Key"] = process.env.SMS_API_KEY;
+      }
+      const res = await axios.post(
+        process.env.SMS_API_URL,
+        {
+          to: formattedPhone,
+          phone: formattedPhone,
+          msisdn: formattedPhone,
+          message: messageText,
+          code,
+          amount,
+          refNo,
+          sender: senderId,
+        },
+        { headers, timeout: 10000 }
+      );
+      console.log(`✅ SMS sent via custom gateway to +${formattedPhone}:`, res.data);
+      return { success: true, provider: "custom", data: res.data };
+    } catch (err) {
+      console.error(`❌ Custom gateway SMS failed:`, err.message);
+    }
+  }
+
+  // 7. DEFAULT SIMULATION LOG
+  console.log(`📱 [SMS SIMULATION] To: +${formattedPhone} | Code: ${code} | Message: "${messageText}"`);
+  return {
+    success: true,
+    provider: "simulation",
+    message: "SMS simulated in dev mode",
+  };
+};
 
 // ═══════════════════════════════════════════════════════════════════
 // RATE LIMITING
@@ -606,14 +849,28 @@ const handleGeneratePaymentCode = async (
 
   console.log(`🔐 Generated 6-digit payment code for refNo: ${cleanRef}, phone: ${msisdn}`);
 
+  // Send the OTP directly to customer's phone number via SMS (AWS SNS as primary)
+  const smsResult = await sendSMS({
+    msisdn,
+    code,
+    amount,
+    refNo: cleanRef,
+  });
+
+  const maskedPhone = maskPhoneNumber(msisdn);
+  const showDevCode = process.env.SHOW_OTP_IN_RESPONSE === "true" || process.env.NODE_ENV !== "production";
+
   return createResponse(
     200,
     {
       success: true,
-      message: "Verification code generated successfully",
+      message: `Verification code sent via SMS to ${maskedPhone}`,
       refNo: cleanRef,
-      code, // Returned for customer prompt verification / modal display
-      verificationCode: code,
+      maskedPhone,
+      smsSent: smsResult.success,
+      smsStatus: smsResult.success ? "sent" : "failed",
+      smsProvider: smsResult.provider,
+      ...(showDevCode ? { code, devCode: code } : {}),
       expiresAt,
       expiresInSeconds: Math.floor(CONFIG.PAYMENT_VERIFICATION.CODE_EXPIRY_MS / 1000),
     },

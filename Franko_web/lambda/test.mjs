@@ -180,3 +180,59 @@ test("Lambda: verifies access code endpoint remains functional", async () => {
   const body = JSON.parse(response.body);
   assert.equal(body.success, true);
 });
+
+test("Lambda: AWS SNS SMS sender sends transactional OTP to phone", async () => {
+  const { SNSClient } = await import("@aws-sdk/client-sns");
+  const originalSend = SNSClient.prototype.send;
+  let capturedCommandInput = null;
+
+  try {
+    process.env.USE_AWS_SNS = "true";
+    process.env.AWS_SNS_REGION = "us-east-1";
+    process.env.AWS_SNS_SENDER_ID = "Franko";
+
+    SNSClient.prototype.send = async function (command) {
+      capturedCommandInput = command.input;
+      return {
+        MessageId: "sns-msg-test-12345",
+        $metadata: { httpStatusCode: 200 },
+      };
+    };
+
+    const event = {
+      httpMethod: "POST",
+      headers: {
+        Identifier: "Franko",
+        "Content-Type": "application/json",
+      },
+      queryStringParameters: {
+        endpoint: "/Payment/Generate-Verification-Code",
+      },
+      body: JSON.stringify({
+        refNo: "ORD-AWS-SNS-999",
+        msisdn: "0241234567",
+        amount: 500.0,
+        network: "MTN",
+        narration: "AWS SNS OTP Test",
+      }),
+    };
+
+    const response = await handler(event);
+    assert.equal(response.statusCode, 200);
+
+    const body = JSON.parse(response.body);
+    assert.equal(body.success, true);
+    assert.equal(body.refNo, "ORD-AWS-SNS-999");
+    assert.equal(body.smsStatus, "sent");
+
+    assert.ok(capturedCommandInput, "SNSClient.send was called");
+    assert.equal(capturedCommandInput.PhoneNumber, "+233241234567");
+    assert.equal(capturedCommandInput.MessageAttributes["AWS.SNS.SMS.SMSType"].StringValue, "Transactional");
+    assert.equal(capturedCommandInput.MessageAttributes["AWS.SNS.SMS.SenderID"].StringValue, "Franko");
+    assert.match(capturedCommandInput.Message, /Your Franko Trading payment verification code is \d{6}\. Amount: GH₵500\.00/);
+  } finally {
+    SNSClient.prototype.send = originalSend;
+    delete process.env.USE_AWS_SNS;
+  }
+});
+
