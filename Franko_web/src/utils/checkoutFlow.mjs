@@ -94,6 +94,36 @@ export function isVerificationExpired(createdAt, expiryMs = 10 * 60 * 1000, now 
   return now - Number(createdAt || 0) > expiryMs;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// GHANA MOMO PREFIX DETECTION & VALIDATION
+// ═══════════════════════════════════════════════════════════════════
+export const MTN_PREFIXES = ['024', '025', '053', '054', '055', '059'];
+export const TELECEL_PREFIXES = ['020', '050'];
+export const AIRTELTIGO_PREFIXES = ['026', '027', '056', '057'];
+
+export function normalizeGhanaNumber(phone) {
+  let clean = String(phone || '').replace(/\D/g, '');
+  if (clean.startsWith('233')) clean = '0' + clean.slice(3);
+  if (clean.length === 9) clean = '0' + clean;
+  return clean;
+}
+
+export function detectMoMoNetwork(phone) {
+  const clean = normalizeGhanaNumber(phone);
+  if (clean.length !== 10 || !clean.startsWith('0')) return null;
+  const prefix = clean.slice(0, 3);
+  if (MTN_PREFIXES.includes(prefix)) {
+    return { network: 'mtn', service: 'MTN', name: 'MTN MoMo', prefix };
+  }
+  if (TELECEL_PREFIXES.includes(prefix)) {
+    return { network: 'vodafone', service: 'VODAFONE', name: 'Telecel Cash', prefix };
+  }
+  if (AIRTELTIGO_PREFIXES.includes(prefix)) {
+    return { network: 'airteltigo', service: 'AIRTELTIGO', name: 'AT Money', prefix };
+  }
+  return null;
+}
+
 export const readJSON = (key, fallback = null) => {
   try {
     const raw = localStorage.getItem(key);
