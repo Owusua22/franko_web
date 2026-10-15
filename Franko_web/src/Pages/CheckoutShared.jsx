@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Input, Radio, Divider, message, Modal } from 'antd';
 import { validateCart, checkOutOrder, updateOrderDelivery, saveCheckoutDetails, saveAddressDetails, FRIENDLY_PRICE_UPDATE_MSG } from '../Redux/Slice/orderSlice';
-import { validateAccount, debitCustomer, checkTransactionStatus, resetPaymentState, verifyTransactionResult } from '../Redux/Slice/paymentSlice';
+import { validateAccount, debitCustomer, checkTransactionStatus, resetPaymentState } from '../Redux/Slice/paymentSlice';
 import { clearCart, getCartById } from '../Redux/Slice/cartSlice';
 import CheckoutForm from '../Component/CheckoutForm';
 import AuthModal from '../Component/AuthModal';
@@ -57,7 +57,6 @@ export default function CheckoutShared({ telecel = false }) {
   const location = useLocation();
   const cartState = useSelector(s => s.cart || {});
   const customerState = useSelector(s => s.customer ?? s.customerReducer ?? s.customers ?? {});
-  const account = useSelector(s => s.payment || {});
   const customer = customerState.currentCustomer ?? customerState.customer ?? customerState.customerDetails ?? customerState.data ?? customerState.user ?? customerState.profile ?? customerState;
   const loggedIn = Boolean(customerId(customer));
   const stored = readJSON('checkoutDetails', {});
@@ -66,7 +65,6 @@ export default function CheckoutShared({ telecel = false }) {
   // Registered Customer Defaults
   const accountPhone = customer?.contactNumber || customer?.ContactNumber || customer?.phone || customer?.telephone || customer?.phoneNumber || savedCustomer?.contactNumber || savedCustomer?.ContactNumber || savedCustomer?.phone || '';
   const accountName = customerNameOf(customer) || `${customer?.firstName || ''} ${customer?.lastName || ''}`.trim() || customerNameOf(savedCustomer);
-  const accountId = customerId(customer) || customerId(savedCustomer);
 
   const [items, setItems] = useState(() => telecel ? (location.state?.items?.length ? location.state.items : readJSON('telCheckoutCart', {})?.items || cartState.cart || []) : (cartState.cart?.length ? cartState.cart : readJSON('cart', []) || []));
   const [recipient, setRecipient] = useState(stored.recipientName || accountName || '');
@@ -74,10 +72,17 @@ export default function CheckoutShared({ telecel = false }) {
   const [different, setDifferent] = useState(() => readJSON('checkoutDifferentRecipient', false) === true || readJSON('checkoutDifferentRecipient', false) === 'true');
   const [note, setNote] = useState(stored.orderNote || '');
 
-  // Track default delivery address
+  // Track default delivery address and different recipient details
   const initialAddress = readJSON('orderAddressDetails', {})?.address || readJSON('deliveryInfo', {})?.address || customer?.address || savedCustomer?.address || '';
   const [delivery, setDelivery] = useState(() => ({ address: initialAddress, fee: 0, feeDisplay: '' }));
   const defaultDeliveryAddressRef = useRef(initialAddress);
+  const differentRecipientRef = useRef({
+    name: stored.recipientName && stored.recipientName !== accountName ? stored.recipientName : '',
+    phone: stored.recipientContactNumber && stored.recipientContactNumber !== accountPhone ? stored.recipientContactNumber : '',
+    address: '',
+    fee: 0,
+    feeDisplay: '',
+  });
 
   useEffect(() => {
     if (!defaultDeliveryAddressRef.current && (customer?.address || savedCustomer?.address || delivery.address)) {
@@ -99,6 +104,7 @@ export default function CheckoutShared({ telecel = false }) {
   const pollTimer = useRef(null);
   const pollDeadline = useRef(null);
   const currentRef = useRef(null);
+  const initializedAccountRef = useRef(false);
 
   const cartId = String(cartState.cartId || readJSON('cartId', '') || '').replace(/^"|"$/g, '');
   const subtotal = useMemo(() => items.reduce((sum, item) => sum + price(item) * qty(item), 0), [items]);
@@ -134,6 +140,15 @@ export default function CheckoutShared({ telecel = false }) {
     if (cartId && !items.length) dispatch(getCartById(cartId));
   }, [cartId, dispatch, items.length]);
 
+  // Initial prefill for signed-in account (once only, never overwriting manual inputs)
+  useEffect(() => {
+    if (loggedIn && !initializedAccountRef.current) {
+      initializedAccountRef.current = true;
+      if (!recipient) setRecipient(accountName);
+      if (!phone) setPhone(accountPhone);
+    }
+  }, [loggedIn, accountName, accountPhone]);
+
   // ═══════════════════════════════════════════════════════════════════
   // Mobile Money Selection Rule:
   // "when the user has selected mobile money as the payment method,
@@ -161,26 +176,63 @@ export default function CheckoutShared({ telecel = false }) {
     }
   }, [method, loggedIn, different, accountName, accountPhone]);
 
-  useEffect(() => {
-    if (loggedIn && !different && method !== 'Mobile Money') {
-      setRecipient(accountName);
-      setPhone(accountPhone);
+  const handleRecipientNameChange = (val) => {
+    if (method === 'Mobile Money') return;
+    setRecipient(val);
+    if (different) {
+      differentRecipientRef.current.name = val;
     }
-  }, [loggedIn, different, accountId, accountName, accountPhone, method]);
+  };
+
+  const handleRecipientPhoneChange = (val) => {
+    if (method === 'Mobile Money') return;
+    setPhone(val);
+    if (different) {
+      differentRecipientRef.current.phone = val;
+    }
+  };
+
+  const handleDeliveryChange = (val) => {
+    if (method === 'Mobile Money') return;
+    setDelivery(val);
+    if (different) {
+      differentRecipientRef.current.address = val?.address || '';
+      differentRecipientRef.current.fee = val?.fee || 0;
+      differentRecipientRef.current.feeDisplay = val?.feeDisplay || '';
+    } else {
+      defaultDeliveryAddressRef.current = val?.address || defaultDeliveryAddressRef.current;
+    }
+  };
 
   const toggleRecipient = () => {
     if (busy || stage !== 'form') return;
     if (method === 'Mobile Money') {
-      message.warning('When paying with Mobile Money, recipient details are locked to your registered Franko account.');
+      message.warning('When paying with Mobile Money, recipient details and delivery address are locked to your registered Franko account.');
       return;
     }
     const next = !different;
-    try { localStorage.removeItem('deliveryInfo'); } catch { /* best effort */ }
-    setRecipient(next ? '' : accountName);
-    setPhone(next ? '' : accountPhone);
-    setDelivery({ address: '', fee: 0, feeDisplay: '' });
-    setError('');
+    try { localStorage.setItem('checkoutDifferentRecipient', String(next)); } catch { /* best effort */ }
     setDifferent(next);
+    if (next) {
+      // Switched TO different recipient: restore any previously entered different details or clean fields
+      const diff = differentRecipientRef.current;
+      setRecipient(diff.name || '');
+      setPhone(diff.phone || '');
+      if (diff.address) {
+        setDelivery({ address: diff.address, fee: diff.fee || 0, feeDisplay: diff.feeDisplay || '' });
+      } else {
+        try { localStorage.removeItem('deliveryInfo'); } catch { /* best effort */ }
+        setDelivery({ address: '', fee: 0, feeDisplay: '' });
+      }
+    } else {
+      // Switched back to account recipient:
+      setRecipient(accountName);
+      setPhone(accountPhone);
+      if (defaultDeliveryAddressRef.current) {
+        setDelivery({ address: defaultDeliveryAddressRef.current, fee: 0, feeDisplay: '' });
+      }
+    }
+    setError('');
   };
 
   const cancel = (reason = 'Payment was cancelled.') => {
@@ -296,19 +348,24 @@ export default function CheckoutShared({ telecel = false }) {
   // ═══════════════════════════════════════════════════════════════════
   // CHECKOUT PROCESS:
   // 1. Validates cart.
-  // 2. If Mobile Money: validates registered number prefix and account name.
-  // 3. If requirement not met: shows error, closes popup, sends NO prompt.
-  // 4. If met: sends debit prompt directly (ignoring OTP), awaits approval.
+  // 2. Dispatches exact customer recipient details when NOT Mobile Money.
+  // 3. If Mobile Money: locks to registered account, validates number prefix and name.
+  // 4. If requirement not met: shows error, closes popup, sends NO prompt.
+  // 5. If met: sends debit prompt directly (ignoring OTP), awaits approval.
   // ═══════════════════════════════════════════════════════════════════
   const begin = async override => {
     if (submitting.current || finished.current) return;
     const c = override && customerId(override) ? override : customer;
     if (!customerId(c)) { setAuth(true); return; }
 
-    const name = String(recipient || accountName || '').trim();
-    const contact = String(phone || accountPhone || '').trim();
+    const isMoMo = method === 'Mobile Money';
+    const finalRecipientName = isMoMo ? String(accountName || '').trim() : String(recipient || '').trim();
+    const finalRecipientContact = isMoMo ? String(accountPhone || '').trim() : String(phone || '').trim();
+    const finalDeliveryAddress = isMoMo
+      ? String(defaultDeliveryAddressRef.current || delivery?.address || '').trim()
+      : String(delivery?.address || '').trim();
 
-    if (!items.length || !cartId || !name || /^guest\b/i.test(name) || !contact || !delivery?.address?.trim() || !method) {
+    if (!items.length || !cartId || !finalRecipientName || /^guest\b/i.test(finalRecipientName) || !finalRecipientContact || !finalDeliveryAddress || !method) {
       setError('Check your cart, recipient name, phone, delivery address and payment method.');
       return;
     }
@@ -320,10 +377,10 @@ export default function CheckoutShared({ telecel = false }) {
     const orderId = generateOrderCode(telecel);
     const { checkout, delivery: address } = buildOrderDetails({
       cartId, customerId: customerId(c), orderId, paymentMode: method,
-      contact, accountType: c.accountType, subtotal,
-      recipientName: name, recipientContactNumber: contact,
+      contact: finalRecipientContact, accountType: c.accountType, subtotal,
+      recipientName: finalRecipientName, recipientContactNumber: finalRecipientContact,
       orderNote: note, orderDate: new Date().toISOString(),
-      address: delivery.address, paymentService: telecel ? NETWORKS.vodafone : 'N/A',
+      address: finalDeliveryAddress, paymentService: telecel ? NETWORKS.vodafone : isMoMo ? (detectedNetworkInfo?.service || 'N/A') : 'N/A',
     });
     const current = { orderId, checkout, address, posting: false, created: false };
     currentRef.current = current;
@@ -338,7 +395,7 @@ export default function CheckoutShared({ telecel = false }) {
         orderDate: checkout.orderDate,
         paymentMode: method,
         paymentService: checkout.paymentService,
-        paymentAccountNumber: contact,
+        paymentAccountNumber: checkout.PaymentAccountNumber,
         customerAccountType: checkout.customerAccountType,
         items: items.map(i => ({ productId: String(i.productId ?? i.productID ?? i.ProductId ?? i.id ?? ''), price: price(i), quantity: qty(i) })),
       })).unwrap();
@@ -363,7 +420,7 @@ export default function CheckoutShared({ telecel = false }) {
       if (!detected || !momoNumber) {
         // Requirement NOT met: DO NOT send prompt, alert customer, close pop-up
         setStage('form');
-        const invalidMsg = 'The momo number is invalid so you should contact the customer service for further assistance.';
+        const invalidMsg = 'The MoMo number is invalid. Please contact customer service for further assistance.';
         setError(invalidMsg);
         Modal.error({
           title: 'Invalid Mobile Money Number',
@@ -390,9 +447,9 @@ export default function CheckoutShared({ telecel = false }) {
           msisdn: msisdn(momoNumber),
           network: detected.service,
         })).unwrap();
-      } catch (valErr) {
+      } catch {
         setStage('form');
-        const invalidMsg = 'The momo number is invalid so you should contact the customer service for further assistance.';
+        const invalidMsg = 'The MoMo number is invalid. Please contact customer service for further assistance.';
         setError(invalidMsg);
         Modal.error({
           title: 'Mobile Money Validation Failed',
@@ -409,7 +466,7 @@ export default function CheckoutShared({ telecel = false }) {
       if (!isValidCode) {
         // Requirement NOT met: DO NOT send prompt, alert customer, close pop-up
         setStage('form');
-        const invalidMsg = 'The momo number is invalid so you should contact the customer service for further assistance.';
+        const invalidMsg = 'The MoMo number is invalid. Please contact customer service for further assistance.';
         setError(invalidMsg);
         Modal.error({
           title: 'Invalid Mobile Money Account',
@@ -476,8 +533,12 @@ export default function CheckoutShared({ telecel = false }) {
   const isMoMoSelected = method === 'Mobile Money';
 
   const flow = {
-    items, customer, loggedIn, different, toggleRecipient, recipient, setRecipient,
-    phone, setPhone, note, setNote, delivery, setDelivery, method, setMethod,
+    items, customer, loggedIn, different, toggleRecipient,
+    recipient, setRecipient: handleRecipientNameChange,
+    phone, setPhone: handleRecipientPhoneChange,
+    note, setNote,
+    delivery, setDelivery: handleDeliveryChange,
+    method, setMethod,
     subtotal, shipping, serviceCharge, amount, error, stage, setStage, busy,
     begin, number: momoNumber, network, detectedNetworkInfo, subscriberName,
     checkAgain, cancel, auth, setAuth, handleAuthSuccess, currentRef,

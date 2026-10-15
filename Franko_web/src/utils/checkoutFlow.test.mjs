@@ -118,3 +118,30 @@ test('detectMoMoNetwork rejects invalid prefixes or lengths', async () => {
   assert.equal(detectMoMoNetwork(''), null);
   assert.equal(detectMoMoNetwork(null), null);
 });
+
+test('buildOrderDetails dispatches exact different recipient details as entered by customer', () => {
+  const customDetails = {
+    cartId: 'CART-999',
+    customerId: 'CUST-100',
+    orderId: 'ORD-777-888',
+    paymentMode: 'Cash on Delivery',
+    contact: '0245556677',
+    accountType: 'Customer',
+    subtotal: 450.00,
+    recipientName: 'Kwaku Frimpong',
+    recipientContactNumber: '0245556677',
+    orderNote: 'Deliver to office reception',
+    orderDate: '2026-10-15T10:00:00.000Z',
+    address: 'Sunyani (Bono Region)',
+  };
+  const { checkout, delivery } = buildOrderDetails(customDetails);
+
+  assert.equal(checkout.recipientName, 'Kwaku Frimpong');
+  assert.equal(checkout.recipientContactNumber, '0245556677');
+  assert.equal(checkout.PaymentAccountNumber, '0245556677');
+  assert.equal(delivery.recipientName, 'Kwaku Frimpong');
+  assert.equal(delivery.recipientContactNumber, '0245556677');
+  assert.equal(delivery.address, 'Sunyani (Bono Region)');
+  assert.equal(assertOrderDetails(checkout, delivery), true);
+});
+
