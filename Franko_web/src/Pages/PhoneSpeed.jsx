@@ -23,6 +23,8 @@ import { CircularPagination } from "../Component/CircularPagination";
 import ProductDetailModal from "../Component/ProductDetailModal";
 import TelCartSidebar from "../Component/TelCartSidebar";
 import useAddToCart from "../Component/Cart";
+import { CATALOGUE_UPDATED_EVENT } from "../Component/CatalogueSync";
+import { cartAddFeedback } from "../utils/cartItems.mjs";
 import speedLogo from "../assets/speed-logo.png";
 import telecelWhite from "../assets/Telecel White.png";
 
@@ -142,7 +144,7 @@ const Notification = ({ message, type, visible, onClose }) => {
     >
       <div
         className={`flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg text-white text-xs sm:text-sm font-semibold ${
-          type === "success" ? "bg-[#BB1420]" : "bg-[#7A0B13]"
+          type === "success" ? "bg-[#BB1420]" : type === "info" ? "bg-amber-700" : "bg-[#7A0B13]"
         }`}
       >
         <Icon className="w-5 h-5 flex-shrink-0" />
@@ -398,43 +400,6 @@ const PhoneSpeed = () => {
   );
   const cartBusy = cartLoading || addingProductId !== null;
 
-  // Latest cart, readable inside async handlers without a stale closure.
-  const cartRef = useRef(reduxCart);
-  cartRef.current = reduxCart;
-
-  // The app's localStorage wrapper may return parsed JSON already.
-  const readStoredCart = useCallback(() => {
-    try {
-      const raw = localStorage.getItem("cart");
-      if (!raw) return [];
-      if (Array.isArray(raw)) return raw;
-      if (typeof raw === "string") {
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed : [];
-      }
-      return [];
-    } catch {
-      return [];
-    }
-  }, []);
-
-  // How many of this product the cart holds right now (redux or storage).
-  const getCartLineQty = useCallback(
-    (id) => {
-      const matches = (item) =>
-        String(
-          item?.productId ?? item?.productID ?? item?.ProductId ?? item?.ProductID ?? item?.id ?? ""
-        ) === String(id);
-      const sum = (list) =>
-        (list || []).reduce(
-          (total, item) => (matches(item) ? total + (Number(item.quantity) || 1) : total),
-          0
-        );
-      return Math.max(sum(cartRef.current), sum(readStoredCart()));
-    },
-    [readStoredCart]
-  );
-
   // Refresh once so the sidebar matches the server cart.
   useEffect(() => {
     const storedId = reduxCartId || localStorage.getItem("cartId");
@@ -459,38 +424,19 @@ const PhoneSpeed = () => {
         showNotice("This product is out of stock", "error");
         return;
       }
-      const qtyBefore = getCartLineQty(id);
-
       setAddingProductId(id);
       try {
-        await addProductToCart({ ...product, quantity: 1 });
-      } catch {
-        /* The call can reject even when the line landed (optimistic write or a
-           failing refetch), so the cart below has the final say. */
+        await addProductToCart(product);
+        flashAdded(id);
+        showNotice("Added to cart successfully");
+      } catch (error) {
+        const feedback = cartAddFeedback(error);
+        showNotice(feedback.message, feedback.type);
       } finally {
         setAddingProductId(null);
       }
-
-      // Poll briefly: the slice may update redux / storage a beat later.
-      const landed = await new Promise((resolve) => {
-        let tries = 0;
-        const check = () => {
-          tries += 1;
-          if (getCartLineQty(id) > qtyBefore) return resolve(true);
-          if (tries >= 6) return resolve(false);
-          return setTimeout(check, 120);
-        };
-        check();
-      });
-
-      if (landed) {
-        showNotice("Added to cart successfully");
-        flashAdded(id);
-      } else {
-        showNotice("Couldn't add this item to your cart. Please try again.", "error");
-      }
     },
-    [addProductToCart, flashAdded, getCartLineQty, showNotice]
+    [addProductToCart, flashAdded, showNotice]
   );
 
   /* ---------- effects ---------- */
@@ -525,6 +471,12 @@ const PhoneSpeed = () => {
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
+
+  useEffect(() => {
+    const refresh = () => dispatch(fetchProductsByShowroom({ id: SHOWROOM_ID, forceRefresh: true }));
+    window.addEventListener(CATALOGUE_UPDATED_EVENT, refresh);
+    return () => window.removeEventListener(CATALOGUE_UPDATED_EVENT, refresh);
+  }, [dispatch]);
 
   // Lock scroll + Escape to close while the filter sheet is open.
   useEffect(() => {

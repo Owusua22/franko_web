@@ -11,8 +11,8 @@ export function createReadCache({ ttl = 300_000, now = Date.now } = {}) {
       entries.delete(key);
       return undefined;
     },
-    read(key, fetcher) {
-      const cached = this.peek(key);
+    read(key, fetcher, { refresh = false } = {}) {
+      const cached = refresh ? undefined : this.peek(key);
       if (cached !== undefined) return Promise.resolve(cached);
       if (pending.has(key)) return pending.get(key);
       const generation = version;

@@ -6,6 +6,7 @@
     "license": "MIT",
     "scripts": {
         "dev": "vite",
+    "test": "node --test src/utils/*.test.mjs",
         "build": "vite build",
         "preview": "vite preview",
         "postbuild": "node generate-sitemap.js",

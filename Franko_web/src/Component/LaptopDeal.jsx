@@ -1,3 +1,4 @@
+import { cartAddFeedback } from "../utils/cartItems.mjs";
 import { getProductUrl } from "../utils/productSlug";
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -21,6 +22,7 @@ import {
 } from "../Redux/Slice/wishlistSlice";
 import Tooltip from "@material-tailwind/react/components/Tooltip";
 import useAddToCart from "./Cart";
+import { CATALOGUE_UPDATED_EVENT } from "./CatalogueSync";
 
 // ==================== NOTIFICATION ====================
 
@@ -119,8 +121,9 @@ const LaptopDeals = () => {
     try {
       await addProductToCart(product);
       showNotification("Added to cart successfully", "success");
-    } catch {
-      showNotification("Failed to add to cart", "error");
+    } catch (error) {
+      const feedback = cartAddFeedback(error);
+      showNotification(feedback.message, feedback.type);
     }
   };
 
@@ -140,6 +143,12 @@ const LaptopDeals = () => {
 
   useEffect(() => {
     dispatch(fetchProductsByCategory(categoryId));
+  }, [dispatch, categoryId]);
+
+  useEffect(() => {
+    const refresh = () => dispatch(fetchProductsByCategory({ id: categoryId, forceRefresh: true }));
+    window.addEventListener(CATALOGUE_UPDATED_EVENT, refresh);
+    return () => window.removeEventListener(CATALOGUE_UPDATED_EVENT, refresh);
   }, [dispatch, categoryId]);
 
   // ==================== SCROLL ARROWS ====================

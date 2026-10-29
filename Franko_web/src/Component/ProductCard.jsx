@@ -1,3 +1,4 @@
+import { cartAddFeedback } from "../utils/cartItems.mjs";
 import { getProductUrl } from "../utils/productSlug";
 import {
   HeartIcon as OutlineHeartIcon,
@@ -120,8 +121,9 @@ const ProductCard = ({ currentProducts = [], navigate, loading = false }) => {
     try {
       await addProductToCart(product);
       showNotification("Added to cart successfully", "success");
-    } catch  {
-      showNotification("Failed to add to cart", "error");
+    } catch (error) {
+      const feedback = cartAddFeedback(error);
+      showNotification(feedback.message, feedback.type);
     }
   };
 

@@ -19,8 +19,9 @@ export const peekPublicRead = params => {
   return key ? cache.peek(key) : undefined;
 };
 export function publicGet(url, config = {}) {
-  const key = publicReadKey(config.params);
-  if (!key) return axiosInstance.get(url, config);
-  return cache.read(key, () => axiosInstance.get(url, config));
+  const { refresh = false, ...requestConfig } = config;
+  const key = publicReadKey(requestConfig.params);
+  if (!key) return axiosInstance.get(url, requestConfig);
+  return cache.read(key, () => axiosInstance.get(url, requestConfig), { refresh });
 }
 export const clearPublicReads = () => cache.clear();

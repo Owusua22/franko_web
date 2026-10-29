@@ -1,3 +1,4 @@
+import { cartAddFeedback } from "../utils/cartItems.mjs";
 import { getProductUrl } from "../utils/productSlug";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -21,6 +22,7 @@ import { fetchProductsByShowroom } from "../Redux/Slice/productSlice";
 import { fetchShowrooms } from "../Redux/Slice/showRoomSlice";
 import { CircularPagination } from "../Component/CircularPagination";
 import useAddToCart from "../Component/Cart";
+import { CATALOGUE_UPDATED_EVENT } from "../Component/CatalogueSync";
 
 /* ============================ CONFIG ============================ */
 
@@ -110,7 +112,7 @@ const Notification = ({ message, type, visible, onClose }) => {
     >
       <div
         className={`flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg text-white text-xs sm:text-sm font-semibold ${
-          type === "success" ? "bg-[#2C5E48]" : "bg-[#BB1420]"
+          type === "success" ? "bg-[#2C5E48]" : type === "info" ? "bg-amber-700" : "bg-[#BB1420]"
         }`}
       >
         <Icon className="w-5 h-5 flex-shrink-0" />
@@ -342,6 +344,12 @@ const ShowroomProductsPage = () => {
     else setHasLoadedOnce(true);
   }, [dispatch, showRoomID]);
 
+  useEffect(() => {
+    const refresh = () => dispatch(fetchProductsByShowroom({ id: showRoomID, forceRefresh: true }));
+    window.addEventListener(CATALOGUE_UPDATED_EVENT, refresh);
+    return () => window.removeEventListener(CATALOGUE_UPDATED_EVENT, refresh);
+  }, [dispatch, showRoomID]);
+
   // Lock scroll + Escape to close while the filter sheet is open.
   useEffect(() => {
     if (!drawerOpen) return undefined;
@@ -465,8 +473,9 @@ const ShowroomProductsPage = () => {
             return next;
           });
         }, 1600);
-      } catch {
-        showNotice("Failed to add to cart", "error");
+      } catch (error) {
+        const feedback = cartAddFeedback(error);
+        showNotice(feedback.message, feedback.type);
       } finally {
         setAddingIds((prev) => {
           const next = new Set(prev);
@@ -610,10 +619,6 @@ const ShowroomProductsPage = () => {
           content={`Explore products in ${
             selectedShowroom?.showRoomName || "our showroom"
           } at Franko Trading.`}
-        />
-        <link
-          rel="canonical"
-          href={`https://www.frankotrading.com/showroom/${showRoomID}`}
         />
         <meta
           name="viewport"

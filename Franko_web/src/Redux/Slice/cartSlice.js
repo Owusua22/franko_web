@@ -14,6 +14,9 @@ import {
   cartTotals,
   resolveCartIdValue,
   getCartProductId,
+  duplicateCartPayload,
+  duplicateCartAdd,
+  sameCartProduct,
 } from "../../utils/cartItems.mjs";
 
 /* ============================================================================
@@ -148,6 +151,7 @@ const initialState = {
   subtotal: initialTotals.subtotal,
   cartId: getOrCreateCartId(),
   loading: false,
+  addingProductIds: [],
   error: null,
 };
 
@@ -172,11 +176,19 @@ const syncCart = (state) => {
  * actually picked) — the endpoint's acknowledgement body is only used to
  * fill fields the request somehow lacked, never to replace the product.
  */
-const postCartItem = async (item, { rejectWithValue }) => {
+const postCartItem = async (item, { rejectWithValue, getState }) => {
   try {
     const cartId = getOrCreateCartId(item?.CartId ?? item?.cartId);
     const requested = normalizeCartItem(item, { cartId });
     if (!requested) throw new Error("ProductId is required");
+
+    // Enforce the rule at the shared boundary, including callers that dispatch
+    // addToCart directly instead of using the useAddToCart hook.
+    const state = getState().cart;
+    const existing = state.cart.some((line) => sameCartProduct(line.productId, requested.productId));
+    if (existing && sameCartProduct(cartId, state.cartId)) {
+      return rejectWithValue(duplicateCartPayload(requested.productId));
+    }
 
     const cartItem = {
       CartId: cartId,
@@ -200,9 +212,18 @@ const postCartItem = async (item, { rejectWithValue }) => {
   }
 };
 
-export const addToCart = createAsyncThunk("cart/addToCart", postCartItem);
-// Backwards-compatible alias — same endpoint, same behaviour.
-export const createCartItem = createAsyncThunk("cart/createCartItem", postCartItem);
+// Runs BEFORE pending: the first add reserves its id; a second click in the
+// same tick is rejected without reaching the API or changing the quantity.
+const rejectDuplicateAdd = (item, { getState, rejectWithValue }) => {
+  const state = getState().cart;
+  const requestedCartId = getOrCreateCartId(item?.CartId ?? item?.cartId ?? state.cartId);
+  const duplicate = duplicateCartAdd(state, getCartProductId(item), requestedCartId);
+  if (duplicate) return rejectWithValue(duplicate);
+};
+
+export const addToCart = createAsyncThunk("cart/addToCart", postCartItem, { condition: rejectDuplicateAdd });
+// Backwards-compatible alias — same endpoint and duplicate protection.
+export const createCartItem = createAsyncThunk("cart/createCartItem", postCartItem, { condition: rejectDuplicateAdd });
 
 /**
  * Fetch the server's record(s) for ONE cart id and MERGE them into the
@@ -330,11 +351,19 @@ const cartSlice = createSlice({
   },
 
   extraReducers: (builder) => {
-    const onPending = (state) => {
-      // Only blank-page "loading" when there is nothing to show yet;
-      // background refetches must not hide a cart that is already on screen.
-      if (state.cart.length === 0) state.loading = true;
+    const onPending = (state, action) => {
+      // A full-cart fetch may make an empty cart wait, but adding product B
+      // must never make product A disappear behind a loading screen.
+      if (action.type.startsWith("cart/getCartById/") && state.cart.length === 0) state.loading = true;
+      if (action.type.startsWith("cart/addToCart/") || action.type.startsWith("cart/createCartItem/")) {
+        const id = String(getCartProductId(action.meta.arg) ?? "");
+        if (id && !state.addingProductIds.includes(id)) state.addingProductIds.push(id);
+      }
       state.error = null;
+    };
+    const stopAdding = (state, action) => {
+      const id = String(getCartProductId(action.meta.arg) ?? "");
+      state.addingProductIds = state.addingProductIds.filter((value) => value !== id);
     };
     const onRejected = (state, action) => {
       state.loading = false;
@@ -347,21 +376,23 @@ const cartSlice = createSlice({
     builder
       .addCase(addToCart.pending, onPending)
       .addCase(addToCart.fulfilled, (state, action) => {
+        stopAdding(state, action);
         state.loading = false;
         state.cartId = action.payload.cartId || state.cartId;
         state.cart = upsertCartItem(state.cart, action.payload);
         syncCart(state);
       })
-      .addCase(addToCart.rejected, onRejected)
+      .addCase(addToCart.rejected, (state, action) => { stopAdding(state, action); onRejected(state, action); })
 
       .addCase(createCartItem.pending, onPending)
       .addCase(createCartItem.fulfilled, (state, action) => {
+        stopAdding(state, action);
         state.loading = false;
         state.cartId = action.payload.cartId || state.cartId;
         state.cart = upsertCartItem(state.cart, action.payload);
         syncCart(state);
       })
-      .addCase(createCartItem.rejected, onRejected)
+      .addCase(createCartItem.rejected, (state, action) => { stopAdding(state, action); onRejected(state, action); })
 
       .addCase(getCartById.pending, onPending)
       .addCase(getCartById.fulfilled, (state, action) => {

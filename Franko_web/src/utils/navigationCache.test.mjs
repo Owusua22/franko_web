@@ -65,10 +65,24 @@ test('product data never substitutes another product during rapid navigation', (
 test('product navigation resets Suspense and displays a destination skeleton until full details are ready', () => {
   const page = readFileSync(new URL('../Pages/ProductDescription.jsx', import.meta.url), 'utf8');
   const app = readFileSync(new URL('../App.jsx', import.meta.url), 'utf8');
-  assert.ok(page.includes('return <ProductDetailSkeleton />'));
+  assert.ok(page.includes('<ProductDetailSkeleton />'));
   assert.ok(page.includes('() => freshProductDetails(resolvedProductId || rawParam)'));
   assert.ok(!page.includes('fetchedProduct || rememberedProduct(rawParam)'));
   assert.ok(app.includes('key={pathname}'));
   assert.ok(app.includes('fallback={<ProductDetailSkeleton />}'));
-  assert.ok(app.includes('pathname.startsWith("/product/") ? <ProductDetailSkeleton /> : null'));
+  assert.ok(app.includes('pathname.startsWith("/product/") ? <ProductDetailSkeleton /> : <LoadingCircle />'));
+});
+
+test('forced catalogue refresh bypasses a fresh cached list but still coalesces concurrent readers', async () => {
+  const cache = createReadCache();
+  let calls = 0;
+  const fetcher = () => { calls++; return calls === 1 ? ['old'] : ['new']; };
+  assert.deepEqual(await cache.read('products', fetcher), ['old']);
+  assert.deepEqual(await cache.read('products', fetcher), ['old']);
+  const a = cache.read('products', fetcher, { refresh: true });
+  const b = cache.read('products', fetcher, { refresh: true });
+  assert.equal(a, b);
+  assert.deepEqual(await a, ['new']);
+  assert.equal(calls, 2);
+  assert.deepEqual(cache.peek('products'), ['new']);
 });

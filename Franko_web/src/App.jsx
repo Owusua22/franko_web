@@ -1,4 +1,8 @@
 import ProductDetailSkeleton from "./Component/ProductDetailSkeleton";
+import LoadingCircle from "./Component/LoadingCircle";
+import { RouteSeoProvider } from "./Component/RouteSeo";
+import CatalogueSync from "./Component/CatalogueSync";
+import NotFound from "./Pages/NotFound";
 import { productPageModule } from "./utils/productPageModule";
 import { appStorage as localStorage } from "./utils/secureLocalStorageInit";
 import { lazy, Suspense, useState, useEffect } from "react";
@@ -224,13 +228,14 @@ function App() {
   }
 
   return (
-    <>
+    <RouteSeoProvider>
       <StorageManager />
       <AuthenticationChecker />
       {!shouldHideNavbar(pathname) && <Nav />}
       <ScrollToTop />
+      <CatalogueSync />
 
-      <Suspense key={pathname} fallback={pathname.startsWith("/product/") ? <ProductDetailSkeleton /> : null}>
+      <Suspense key={pathname} fallback={pathname.startsWith("/product/") ? <ProductDetailSkeleton /> : <LoadingCircle />}>
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
@@ -260,7 +265,7 @@ function App() {
         <Route path="/product/:slug" element={<Suspense key={pathname} fallback={<ProductDetailSkeleton />}><ProductDescription /></Suspense>} />
 
         <Route path="showroom/:showRoomID" element={<ShowroomProductsPage />} />
-        <Route path="/order-history" element={<OrderHistory />} />
+        <Route path="/order-history" element={<Suspense fallback={<LoadingCircle label="Preparing your orders…" />}><OrderHistory /></Suspense>} />
         <Route path="/wishlist" element={<Wishlist />} />
         <Route path="/brand/:brandId" element={<BrandsPage />} />
         <Route path="/terms" element={<Terms />} />
@@ -276,10 +281,10 @@ function App() {
         <Route path="/agent/dashboard" element={<ProtectedRoute allowedRoles={["agent"]}><AgentPage><AgentDashboard /></AgentPage></ProtectedRoute>} />
         <Route path="/agent/orders" element={<ProtectedRoute allowedRoles={["agent"]}><AgentPage><AgentOrders /></AgentPage></ProtectedRoute>} />
         <Route path="/agent/order-placement" element={<ProtectedRoute allowedRoles={["agent"]}><AgentPage><CTP001ProductsPage /></AgentPage></ProtectedRoute>} />
-        <Route path="*" element={<Navigate to="/" />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
       </Suspense>
-    </>
+    </RouteSeoProvider>
   );
 }
 

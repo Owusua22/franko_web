@@ -60,10 +60,41 @@ export const getCartProductId = (item) => firstValue(item, PRODUCT_ID_KEYS);
 export const getCartProductName = (item) => firstValue(item, PRODUCT_NAME_KEYS) || "";
 export const getCartImagePath = (item) => firstValue(item, IMAGE_KEYS) || "";
 
+export const CART_ITEM_EXISTS = "CART_ITEM_EXISTS";
+export const CART_ITEM_EXISTS_MESSAGE =
+  "Item already added to the cart. Update quantity in the cart page.";
+
+export const duplicateCartPayload = (productId) => ({
+  code: CART_ITEM_EXISTS,
+  productId: String(productId),
+  message: CART_ITEM_EXISTS_MESSAGE,
+});
+
+/** Repeated Add-to-Cart is a notice, not a failed purchase or a quantity change. */
+export const cartAddFeedback = (error) => ({
+  message: error?.code === CART_ITEM_EXISTS
+    ? CART_ITEM_EXISTS_MESSAGE
+    : error?.message || "Failed to add to cart. Please try again.",
+  type: error?.code === CART_ITEM_EXISTS ? "info" : "error",
+});
+
 export const sameCartProduct = (left, right) =>
   left !== undefined && left !== null && left !== "" &&
   right !== undefined && right !== null && right !== "" &&
   String(left) === String(right);
+
+/** Shared duplicate guard for the thunk condition and the add-to-cart hook.
+ * `addingProductIds` closes the same-tick race before the first POST fulfils.
+ */
+export function duplicateCartAdd(cartState, productId, cartId) {
+  if (!sameCartProduct(cartId, cartState?.cartId)) return null;
+  const id = String(productId ?? "");
+  if (!id) return null;
+  const pending = Array.isArray(cartState?.addingProductIds) && cartState.addingProductIds.includes(id);
+  const existing = Array.isArray(cartState?.cart) &&
+    cartState.cart.some((line) => sameCartProduct(line.productId, id));
+  return pending || existing ? duplicateCartPayload(id) : null;
+}
 
 const round2 = (value) => Math.round((Number(value) || 0) * 100) / 100;
 

@@ -1,3 +1,4 @@
+import { cartAddFeedback } from "../utils/cartItems.mjs";
 import { getProductUrl } from "../utils/productSlug";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -22,6 +23,7 @@ import {
   removeFromWishlist,
 } from "../Redux/Slice/wishlistSlice";
 import useAddToCart from "./Cart";
+import { CATALOGUE_UPDATED_EVENT } from "./CatalogueSync";
 
 const SHOWROOM_ID = "a0631779-0be9-4cc3-825d-5b381343859c";
 const INITIAL_FETCH_COUNT = 60;
@@ -39,7 +41,8 @@ const PROMO_END = PROMO_START + 24 * 60 * 60 * 1000; // 24 hours only
 const Notification = ({ message, type, visible, onClose }) => {
   const timerRef = useRef(null);
   const isSuccess = type === "success";
-  const Icon = isSuccess ? CheckCircleIcon : XCircleIcon;
+  const isInfo = type === "info";
+  const Icon = isSuccess || isInfo ? CheckCircleIcon : XCircleIcon;
 
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -142,7 +145,7 @@ const SpeedShoppingPage = () => {
   const { productsByShowroom, loading } = useSelector((state) => state.products);
   const wishlist = useSelector((state) => state.wishlist.items || []);
 
-  const products = productsByShowroom?.[SHOWROOM_ID] || [];
+  const products = useMemo(() => productsByShowroom?.[SHOWROOM_ID] || [], [productsByShowroom]);
   const visibleProducts = useMemo(
     () => products.slice(0, visibleCount),
     [products, visibleCount]
@@ -174,6 +177,14 @@ const SpeedShoppingPage = () => {
     );
   }, [dispatch]);
 
+  useEffect(() => {
+    const refresh = () => dispatch(fetchProductByShowroomAndRecord({
+      showRoomCode: SHOWROOM_ID, recordNumber: INITIAL_FETCH_COUNT, forceRefresh: true,
+    }));
+    window.addEventListener(CATALOGUE_UPDATED_EVENT, refresh);
+    return () => window.removeEventListener(CATALOGUE_UPDATED_EVENT, refresh);
+  }, [dispatch]);
+
   // -----------------------------------------------------
   // Wishlist / cart actions
   // -----------------------------------------------------
@@ -203,8 +214,9 @@ const SpeedShoppingPage = () => {
     try {
       await addProductToCart(product);
       showNotification("Added to cart successfully");
-    } catch {
-      showNotification("Unable to add product to cart", "error");
+    } catch (error) {
+      const feedback = cartAddFeedback(error);
+      showNotification(feedback.message, feedback.type);
     }
   };
 
