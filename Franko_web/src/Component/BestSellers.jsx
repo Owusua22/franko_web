@@ -1,3 +1,4 @@
+import { cartAddFeedback } from "../utils/cartItems.mjs";
 import { getProductUrl } from "../utils/productSlug";
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -22,6 +23,7 @@ import {
 } from "../Redux/Slice/wishlistSlice";
 import Tooltip from "@material-tailwind/react/components/Tooltip";
 import useAddToCart from "./Cart";
+import { CATALOGUE_UPDATED_EVENT } from "./CatalogueSync";
 
 // ==================== NOTIFICATION ====================
 
@@ -43,8 +45,8 @@ const Notification = ({ message, type, isVisible, onClose }) => {
 
   if (!isVisible || !message) return null;
 
-  const bgColor = type === "success" ? "bg-green-800" : "bg-red-600";
-  const Icon = type === "success" ? CheckCircleIcon : XCircleIcon;
+  const bgColor = type === "success" ? "bg-green-800" : type === "info" ? "bg-amber-700" : "bg-red-600";
+  const Icon = type === "success" ? CheckCircleIcon : type === "info" ? CheckCircleIcon : XCircleIcon;
 
   return (
     <div className="fixed top-4 right-4 z-50 bs-animate-slide-in">
@@ -122,8 +124,9 @@ const BestSellers = () => {
     try {
       await addProductToCart(product);
       showNotification("Added to cart successfully", "success");
-    } catch {
-      showNotification("Failed to add to cart", "error");
+    } catch (error) {
+      const feedback = cartAddFeedback(error);
+      showNotification(feedback.message, feedback.type);
     }
   };
 
@@ -152,6 +155,15 @@ const BestSellers = () => {
       fetchProductByShowroomAndRecord({ showRoomCode: id, recordNumber: 10 })
     );
   };
+
+  useEffect(() => {
+    if (!activeShowroom) return undefined;
+    const refresh = () => dispatch(fetchProductByShowroomAndRecord({
+      showRoomCode: activeShowroom, recordNumber: 10, forceRefresh: true,
+    }));
+    window.addEventListener(CATALOGUE_UPDATED_EVENT, refresh);
+    return () => window.removeEventListener(CATALOGUE_UPDATED_EVENT, refresh);
+  }, [dispatch, activeShowroom]);
 
   // ==================== SCROLL ARROWS ====================
 

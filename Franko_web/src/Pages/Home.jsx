@@ -36,7 +36,6 @@ function Home() {
   return (
     <div onPointerOver={() => { productPageModule().catch(() => {}); }} onFocus={() => { productPageModule().catch(() => {}); }}>
       <Helmet>
-        <link rel="canonical" href="https://www.frankotrading.com/" />
         <title>Franko Trading | Best Phones, Laptops & Electronics Deals in Ghana</title>
         <meta
           name="description"
@@ -47,7 +46,6 @@ function Home() {
           content="gadgets, phones, laptops, electronics, aircondition, washing machine, cctv camera, router, tablets, televisions, blender, microwave, pendrive, speaker, accessories, Ghana"
         />
         <meta name="author" content="Franko Trading Enterprise" />
-        <meta name="robots" content="index, follow" />
         <meta property="og:title" content="Franko Trading | Home" />
         <meta
           property="og:description"

@@ -1,3 +1,4 @@
+import { cartAddFeedback } from "../utils/cartItems.mjs";
 import { getProductUrl } from "../utils/productSlug";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -20,6 +21,7 @@ import {
 import { fetchProductsByCategory } from "../Redux/Slice/productSlice";
 import { CircularPagination } from "../Component/CircularPagination";
 import useAddToCart from "../Component/Cart";
+import { CATALOGUE_UPDATED_EVENT } from "../Component/CatalogueSync";
 
 /* ============================ CONFIG ============================ */
 
@@ -104,7 +106,7 @@ const Notification = ({ message, type, visible, onClose }) => {
     >
       <div
         className={`flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg text-white text-xs sm:text-sm font-semibold ${
-          type === "success" ? "bg-[#2C5E48]" : "bg-[#BB1420]"
+          type === "success" ? "bg-[#2C5E48]" : type === "info" ? "bg-amber-700" : "bg-[#BB1420]"
         }`}
       >
         <Icon className="w-5 h-5 flex-shrink-0" />
@@ -327,6 +329,12 @@ const Laptops = () => {
     else setHasLoadedOnce(true);
   }, [dispatch]);
 
+  useEffect(() => {
+    const refresh = () => dispatch(fetchProductsByCategory({ id: CATEGORY_ID, forceRefresh: true }));
+    window.addEventListener(CATALOGUE_UPDATED_EVENT, refresh);
+    return () => window.removeEventListener(CATALOGUE_UPDATED_EVENT, refresh);
+  }, [dispatch]);
+
   // Lock scroll + Escape to close while the filter sheet is open.
   useEffect(() => {
     if (!drawerOpen) return undefined;
@@ -445,8 +453,9 @@ const Laptops = () => {
             return next;
           });
         }, 1600);
-      } catch {
-        showNotice("Failed to add to cart", "error");
+      } catch (error) {
+        const feedback = cartAddFeedback(error);
+        showNotice(feedback.message, feedback.type);
       } finally {
         setAddingIds((prev) => {
           const next = new Set(prev);
@@ -628,7 +637,6 @@ const Laptops = () => {
               : "default-image-url"
           }
         />
-        <link rel="canonical" href="https://www.frankotrading.com/computers" />
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1, viewport-fit=cover"

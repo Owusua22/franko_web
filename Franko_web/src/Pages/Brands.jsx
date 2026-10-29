@@ -1,10 +1,11 @@
+import { cartAddFeedback } from "../utils/cartItems.mjs";
 import PendingPlaceholder from "../Component/PendingPlaceholder";
-import { findBrand, getBrandSlug } from "../utils/productSlug";
-import { getBrandUrl, getProductUrl } from "../utils/productSlug";
+import { findBrand, getBrandSlug, getBrandUrl, getProductUrl } from "../utils/productSlug";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { Helmet } from "react-helmet";
+import { useResolvedSeo } from "../Component/RouteSeoContext";
 import {
   FunnelIcon,
   XMarkIcon,
@@ -23,6 +24,7 @@ import { fetchProductsByBrand } from "../Redux/Slice/productSlice";
 import { fetchBrands } from "../Redux/Slice/brandSlice";
 import { CircularPagination } from "../Component/CircularPagination";
 import useAddToCart from "../Component/Cart";
+import { CATALOGUE_UPDATED_EVENT } from "../Component/CatalogueSync";
 
 /* ============================ CONFIG ============================ */
 
@@ -106,7 +108,7 @@ const Notification = ({ message, type, visible, onClose }) => {
     >
       <div
         className={`flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg text-white text-xs sm:text-sm font-semibold ${
-          type === "success" ? "bg-[#2C5E48]" : "bg-[#BB1420]"
+          type === "success" ? "bg-[#2C5E48]" : type === "info" ? "bg-amber-700" : "bg-[#BB1420]"
         }`}
       >
         <Icon className="w-5 h-5 flex-shrink-0" />
@@ -285,6 +287,7 @@ const Brand = () => {
   const { brands = [], loading: brandsLoading, error: brandsError } = useSelector((s) => s.brands);
   const resolvedBrand = findBrand(brands, brandParam);
   const brandId = resolvedBrand?.brandId;
+  useResolvedSeo({ canonical: resolvedBrand ? `https://www.frankotrading.com${getBrandUrl(resolvedBrand)}` : null, robots: resolvedBrand ? "index, follow" : "noindex, follow" });
   const { addProductToCart, loading: cartLoading } = useAddToCart();
 
   const [recentlyAdded, setRecentlyAdded] = useState(() => new Set());
@@ -341,6 +344,13 @@ const Brand = () => {
       navigate(getBrandUrl(resolvedBrand), { replace: true });
     }
   }, [resolvedBrand, brandParam, navigate]);
+
+  useEffect(() => {
+    if (!brandId) return undefined;
+    const refresh = () => dispatch(fetchProductsByBrand({ id: brandId, forceRefresh: true }));
+    window.addEventListener(CATALOGUE_UPDATED_EVENT, refresh);
+    return () => window.removeEventListener(CATALOGUE_UPDATED_EVENT, refresh);
+  }, [dispatch, brandId]);
 
   // Lock scroll + Escape to close while the filter sheet is open.
   useEffect(() => {
@@ -459,8 +469,9 @@ const Brand = () => {
             return next;
           });
         }, 1600);
-      } catch {
-        showNotice("Failed to add to cart", "error");
+      } catch (error) {
+        const feedback = cartAddFeedback(error);
+        showNotice(feedback.message, feedback.type);
       } finally {
         setAddingIds((prev) => {
           const next = new Set(prev);
@@ -712,7 +723,7 @@ const Brand = () => {
 
   /* ============================ RENDER ============================ */
 
-  if (!resolvedBrand) return <><Helmet><meta name="robots" content="noindex" /></Helmet><main className="p-8 text-center" role="status">{brandsLoading ? <PendingPlaceholder compact /> : brandsError ? "Unable to load brands. Please retry." : "Brand not found."}</main></>;
+  if (!resolvedBrand) return <><main className="p-8 text-center" role="status">{brandsLoading ? <PendingPlaceholder compact /> : brandsError ? "Unable to load brands. Please retry." : "Brand not found."}</main></>;
 
   return (
     <>
@@ -720,7 +731,6 @@ const Brand = () => {
         <title>{pageTitle}</title>
         <meta name="title" content={pageTitle} />
         <meta name="description" content={description} />
-        <link rel="canonical" href={pageUrl} />
         <meta property="og:type" content="website" />
         <meta property="og:url" content={pageUrl} />
         <meta property="og:title" content={pageTitle} />
@@ -748,7 +758,6 @@ const Brand = () => {
           name="keywords"
           content={`${brandName}, electronics Ghana, buy ${brandName}, Franko Trading`}
         />
-        <meta name="robots" content="index, follow" />
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1, viewport-fit=cover"

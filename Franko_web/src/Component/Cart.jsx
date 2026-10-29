@@ -6,9 +6,9 @@ import { appStorage as localStorage } from "../utils/secureLocalStorageInit";
 // The cart PAGE lives in Pages/Cart.jsx and renders Component/CartView.jsx.
 
 import { useCallback, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch, useSelector, useStore } from "react-redux";
 import { addToCart, getOrCreateCartId, selectCartItems } from "../Redux/Slice/cartSlice";
-import { getCartProductId, getCartProductName, getCartImagePath } from "../utils/cartItems.mjs";
+import { getCartProductId, getCartProductName, getCartImagePath, duplicateCartAdd, CART_ITEM_EXISTS } from "../utils/cartItems.mjs";
 
 const getErrorMessage = (error) => {
   if (typeof error === "string" && error.trim()) return error;
@@ -33,19 +33,26 @@ const readCustomer = () => {
  * Adds a product to the ONE canonical cart. Every add posts under the same
  * cart id (getOrCreateCartId), and the slice upserts the returned line into
  * state.cart — so adding product B never replaces product A, and adding A
- * twice tops up A's row instead of duplicating it.
+ * twice shows the cart-page quantity notice without another POST.
  */
 const useAddToCart = () => {
   const dispatch = useDispatch();
+  const store = useStore();
   const cartItems = useSelector(selectCartItems);
   const cartId = useSelector((state) => state.cart?.cartId || null);
   const [loading, setLoading] = useState(false);
 
   const addProductToCart = useCallback(
-    async (product, quantity = 1) => {
+    async (product) => {
       const productId = getCartProductId(product);
       if (productId === undefined || productId === null || productId === "") {
         throw new Error("ProductId is required");
+      }
+
+      const currentCart = store.getState().cart;
+      const duplicate = duplicateCartAdd(currentCart, productId, currentCart.cartId);
+      if (duplicate) {
+        throw Object.assign(new Error(duplicate.message), { code: duplicate.code });
       }
 
       setLoading(true);
@@ -57,7 +64,8 @@ const useAddToCart = () => {
           ProductName: getCartProductName(product),
           ImagePath: getCartImagePath(product),
           Price: Number.parseFloat(product?.price ?? product?.Price ?? 0) || 0,
-          Quantity: Math.max(1, parseInt(quantity, 10) || 1),
+          // Product surfaces add one unit. Only the cart page can change quantity.
+          Quantity: 1,
           CustomerId:
             customer?.customerAccountNumber ??
             customer?.CustomerAccountNumber ??
@@ -86,12 +94,12 @@ const useAddToCart = () => {
 
         return true;
       } catch (error) {
-        throw new Error(getErrorMessage(error));
+        throw Object.assign(new Error(getErrorMessage(error)), { code: error?.code });
       } finally {
         setLoading(false);
       }
     },
-    [cartId, dispatch]
+    [cartId, dispatch, store]
   );
 
   return { addProductToCart, loading, cartItems, cartId };

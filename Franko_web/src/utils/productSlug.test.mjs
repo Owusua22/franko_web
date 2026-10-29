@@ -42,7 +42,8 @@ test('approved spreadsheet sitemap includes every validated unique record exactl
   assert.equal(products.length + conflicts.flatMap(c => c.products).length + invalid.length, 361);
   const { sitemap, redirects } = seoArtifacts(products, []);
   assert.equal((sitemap.match(/<loc>/g) || []).length, 371);
-  assert.equal(redirects.length, 356);
+  assert.equal(redirects.filter(([from]) => !from.endsWith("/")).length, 356);
+  assert.equal(redirects.filter(([from]) => from.endsWith("/")).length, 370);
   for (const product of products) {
     assert.ok(sitemap.includes(`https://www.frankotrading.com${getProductUrl(product)}</loc>`));
     assert.ok(!sitemap.includes(product.productID));

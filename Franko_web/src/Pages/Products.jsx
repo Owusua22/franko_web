@@ -1,6 +1,6 @@
+import { cartAddFeedback } from "../utils/cartItems.mjs";
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchPaginatedProducts } from '../Redux/Slice/productSlice';
 import { addToWishlist, removeFromWishlist } from '../Redux/Slice/wishlistSlice';
 import { Empty } from 'antd';
 import { Helmet } from 'react-helmet';
@@ -67,16 +67,13 @@ const SkeletonCard = () => (
 
 const ProductsPage = () => {
   const dispatch = useDispatch();
-  const { products: _products, loading } = useSelector((state) => state.products || {});
+  const { products = [], loading } = useSelector((state) => state.products || {});
   const wishlist = useSelector((state) => state.wishlist.items);
   const { addProductToCart, loading: cartLoading } = useAddToCart();
 
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedProductId, setSelectedProductId] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [allProducts, setAllProducts] = useState([]);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
 
   const [notification, setNotification] = useState({
     message: '',
@@ -102,22 +99,14 @@ const ProductsPage = () => {
     window.scrollTo(0, 0);
   }, []);
 
-  useEffect(() => {
-    setLoadingMore(true);
-    dispatch(fetchPaginatedProducts({ pageNumber: currentPage, pageSize: itemsPerPage })).then((response) => {
-      if (response.meta?.requestStatus === "fulfilled" && Array.isArray(response.payload)) {
-        setAllProducts((prev) => [...prev, ...response.payload]);
-        setHasMore(response.payload.length > 0);
-      } else {
-        setHasMore(false);
-      }
-      setLoadingMore(false);
-    });
-  }, [dispatch, currentPage]);
-
-  const filteredProducts = useMemo(() => {
-    return allProducts.filter((product) => product.status !== '0');
-  }, [allProducts]);
+  // CatalogueSync owns the live read. Slice the shared catalogue locally so a
+  // refresh can add new products without appending duplicate paginated rows.
+  const filteredProducts = useMemo(
+    () => products.filter((product) => Number(product.status) === 1).slice(0, currentPage * itemsPerPage),
+    [products, currentPage, itemsPerPage]
+  );
+  const hasMore = products.length > filteredProducts.length;
+  const loadingMore = false;
 
   const handleProductClick = (productId) => {
     setSelectedProductId(productId);
@@ -184,8 +173,9 @@ const ProductsPage = () => {
     try {
       await addProductToCart(product);
       showNotification("Added to cart");
-    } catch {
-      showNotification("Failed to add to cart", "error");
+    } catch (error) {
+      const feedback = cartAddFeedback(error);
+      showNotification(feedback.message, feedback.type);
     }
   };
 
@@ -561,7 +551,6 @@ const ProductsPage = () => {
         <Helmet>
           <title>Shop Phones & Gadgets | Best Prices at Franko Trading</title>
           <meta name="description" content="Explore the latest smartphones, laptops, and accessories at unbeatable prices. Shop online at Franko Trading today!" />
-          <meta name="robots" content="index, follow" />
           <meta property="og:title" content="Shop Phones & Gadgets | Best Prices at Franko Trading" />
         </Helmet>
 
@@ -588,7 +577,7 @@ const ProductsPage = () => {
           </div>
 
           {/* Products Grid */}
-          {loading && allProducts.length === 0 ? (
+          {loading && products.length === 0 ? (
             <div className="pp-grid">
               {Array.from({ length: 15 }).map((_, index) => (
                 <SkeletonCard key={index} />

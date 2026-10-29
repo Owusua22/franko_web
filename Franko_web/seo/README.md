@@ -1,45 +1,28 @@
-# Spreadsheet product sitemap source
+# Offline SEO snapshot
 
-Source: [products_export_2026-10-23](https://docs.google.com/spreadsheets/d/1Nm9_dl7ezRs4lW8KnEEyzBnv6dxRJhhN_CddGaCxLV0/edit), Products tab, read via the authorized Google Sheets/Drive connectors.
-Snapshot imported 2026-10-23. The source spreadsheet was not edited.
+The production generator now reads the **existing product and brand APIs by default**. This directory is an explicit offline fallback, not the automatic product source.
+
+The snapshot was imported from the owner-authorized spreadsheet export `products_export_2026-10-23`:
 
 - `data/products-2026-10-23.csv`: complete authorized export, 361 rows.
-- `data/products.json`: 356 unique, validated product IDs/names used by normal builds.
-- `data/product-invalid.json`: one malformed UUID (row 147, itel 5600 new),
-  withheld rather than guessing the intended ID.
-- `data/product-conflicts.json`: four records in two conflicting name-only slugs,
-  withheld to avoid choosing an arbitrary UUID or making up product variants.
+- `data/products.json`: 356 unique, validated product IDs/names for offline previews.
+- `data/product-invalid.json`: one malformed UUID, withheld rather than guessing the intended ID.
+- `data/product-conflicts.json`: four records in two conflicting name-only slugs, withheld to avoid choosing an arbitrary UUID or inventing variant names.
 
-The sheet provides names and IDs, **not** backend status, stock, modification times
-or brand data. `status: 1` in the generated snapshot is an inclusion marker for
-this owner-approved sitemap list, not a verified live availability assertion.
-Existing API calls still control live product display/stock. Names (including
-apparent typos and literal backslash sequences) are preserved; the exact shared
-JavaScript slug function produces URLs. Do not silently correct a name in the
-sitemap alone: the site and sitemap must agree.
+The sheet provides names and IDs, not backend status, stock, modification times, or brand data. `status: 1` in this snapshot is an inclusion marker for the approved offline list, not a verified live availability assertion. Live API data controls production display and sitemap generation.
 
-Resolve conflicts by assigning meaningful unique product names in the catalogue
-and supplying a fresh sheet export, or confirming which duplicate ID is canonical:
+Use the snapshot only for an offline preview:
 
-- Samsung Galaxy Flip 7 (12GB + 512GB) - Plus Free Voucher
-- Samsung S24+ (512GB + 12GB) - Plus Free Voucher
-
-To refresh from a newer authorized CSV:
-
-```
-python scripts/import-seo-products.py /path/to/new-export.csv
-npm run generate:sitemap
-npm run build
+```bash
+SEO_SOURCE=snapshot npm run build
 ```
 
-Default builds use the checked-in snapshot, so product sitemap entries are not
-lost during an offline build. This is a snapshot, not automatic synchronization
-with future spreadsheet edits. To restore live-catalogue generation explicitly:
-`SEO_SOURCE=live npm run build`. `SEO_PRODUCTS_FILE` and `SEO_BRANDS_FILE` still
-support complete JSON exports. Brand entries require brand IDs/names, which this
-sheet does not contain. Deploy the generated redirects along with `dist`.
+Or provide complete JSON exports:
 
-The sitemap contains 356 product URLs plus 15 static URLs = **371 URLs**.
-`public/robots.txt` already advertises its production location. Deploy before
-submitting `https://www.frankotrading.com/sitemap.xml` to Search Console. A sitemap
-supports discovery; search engines decide whether and when to index each page.
+```bash
+SEO_PRODUCTS_FILE=/path/products.json SEO_BRANDS_FILE=/path/brands.json npm run build
+```
+
+Do not silently correct a product name in the sitemap alone. The storefront and sitemap must use the same shared slug function. Resolve duplicate public names in the backend catalogue with meaningful variant names before publishing.
+
+`seo/previous-index.json` retains public ID-to-slug mappings so renames keep old aliases. The scheduled GitHub Actions workflow caches and uploads this archive. Keep it across releases; do not replace it with empty preview output.

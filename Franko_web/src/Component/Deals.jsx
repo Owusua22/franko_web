@@ -1,3 +1,4 @@
+import { cartAddFeedback } from "../utils/cartItems.mjs";
 import { getProductUrl } from "../utils/productSlug";
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -23,6 +24,7 @@ import {
 } from "../Redux/Slice/wishlistSlice";
 import Tooltip from "@material-tailwind/react/components/Tooltip";
 import useAddToCart from "./Cart";
+import { CATALOGUE_UPDATED_EVENT } from "./CatalogueSync";
 
 // ==================== NOTIFICATION ====================
 
@@ -44,8 +46,8 @@ const Notification = ({ message, type, isVisible, onClose }) => {
 
   if (!isVisible || !message) return null;
 
-  const bgColor = type === "success" ? "bg-green-800" : "bg-red-600";
-  const Icon = type === "success" ? CheckCircleIcon : XCircleIcon;
+  const bgColor = type === "success" ? "bg-green-800" : type === "info" ? "bg-amber-700" : "bg-red-600";
+  const Icon = type === "success" ? CheckCircleIcon : type === "info" ? CheckCircleIcon : XCircleIcon;
 
   return (
     <div className="fixed top-4 right-4 z-50 deals-animate-slide-in">
@@ -121,8 +123,9 @@ const Deals = () => {
     try {
       await addProductToCart(product);
       showNotification("Added to cart successfully", "success");
-    } catch {
-      showNotification("Failed to add to cart", "error");
+    } catch (error) {
+      const feedback = cartAddFeedback(error);
+      showNotification(feedback.message, feedback.type);
     }
   };
 
@@ -133,6 +136,14 @@ const Deals = () => {
         recordNumber: 10,
       })
     );
+  }, [dispatch]);
+
+  useEffect(() => {
+    const refresh = () => dispatch(fetchProductByShowroomAndRecord({
+      showRoomCode: showroomID, recordNumber: 10, forceRefresh: true,
+    }));
+    window.addEventListener(CATALOGUE_UPDATED_EVENT, refresh);
+    return () => window.removeEventListener(CATALOGUE_UPDATED_EVENT, refresh);
   }, [dispatch]);
 
   // ==================== SUNDAY → SATURDAY COUNTDOWN ====================

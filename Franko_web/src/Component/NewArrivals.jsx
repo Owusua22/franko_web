@@ -1,3 +1,4 @@
+import { cartAddFeedback } from "../utils/cartItems.mjs";
 import { getProductUrl } from "../utils/productSlug";
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -39,7 +40,7 @@ const Notification = ({ message, type, isVisible, onClose }) => {
 
   if (!isVisible || !message) return null;
 
-  const bgColor = type === "success" ? "bg-green-800" : "bg-red-600";
+  const bgColor = type === "success" ? "bg-green-800" : type === "info" ? "bg-amber-700" : "bg-red-600";
   const Icon = type === "success" ? CheckCircleIcon : XCircleIcon;
 
   return (
@@ -144,8 +145,9 @@ const NewArrivals = () => {
     try {
       await addProductToCart(product);
       showNotification("Added to cart");
-    } catch {
-      showNotification("Failed to add to cart", "error");
+    } catch (error) {
+      const feedback = cartAddFeedback(error);
+      showNotification(feedback.message, feedback.type);
     }
   };
 

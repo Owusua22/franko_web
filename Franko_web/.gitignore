@@ -9,3 +9,6 @@ build/
 public/_redirects
 public/seo-index.json
 seo-redirects.nginx.conf
+seo-nginx.conf
+seo-htaccess.txt
+public/_headers

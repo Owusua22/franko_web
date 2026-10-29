@@ -206,9 +206,9 @@ export const fetchAllProducts = createAsyncThunk(
 
 export const fetchProducts = createAsyncThunk(
   "products/fetchProducts",
-  async (_, { rejectWithValue }) => {
+  async (options = {}, { rejectWithValue }) => {
     try {
-      const { data } = await getCatalogue();
+      const { data } = await getCatalogue({ forceRefresh: options?.forceRefresh === true });
 
       if (!Array.isArray(data)) return [];
 
@@ -267,10 +267,13 @@ export const fetchPaginatedProducts = createAsyncThunk(
 
 export const fetchProductsByCategory = createAsyncThunk(
   "products/fetchProductsByCategory",
-  async (categoryId, { rejectWithValue }) => {
+  async (arg, { rejectWithValue }) => {
+    const categoryId = typeof arg === "object" ? arg.id : arg;
+    const forceRefresh = typeof arg === "object" && arg.forceRefresh === true;
     try {
       const { data } = await publicGet("/", {
         params: { endpoint: `/Product/Product-Get-by-Category/${categoryId}` },
+        refresh: forceRefresh,
       });
 
       if (!Array.isArray(data)) return { categoryId, products: [] };
@@ -284,10 +287,13 @@ export const fetchProductsByCategory = createAsyncThunk(
 
 export const fetchProductsByBrand = createAsyncThunk(
   "products/fetchProductsByBrand",
-  async (brandId, { rejectWithValue }) => {
+  async (arg, { rejectWithValue }) => {
+    const brandId = typeof arg === "object" ? arg.id : arg;
+    const forceRefresh = typeof arg === "object" && arg.forceRefresh === true;
     try {
       const { data } = await publicGet("/", {
         params: { endpoint: `/Product/Product-Get-by-Brand/${brandId}` },
+        refresh: forceRefresh,
       });
 
       if (!Array.isArray(data)) return [];
@@ -302,10 +308,13 @@ export const fetchProductsByBrand = createAsyncThunk(
 
 export const fetchProductsByShowroom = createAsyncThunk(
   "products/fetchProductsByShowroom",
-  async (showRoomID, { rejectWithValue }) => {
+  async (arg, { rejectWithValue }) => {
+    const showRoomID = typeof arg === "object" ? arg.id : arg;
+    const forceRefresh = typeof arg === "object" && arg.forceRefresh === true;
     try {
       const { data } = await publicGet("/", {
         params: { endpoint: `/Product/Product-Get-by-ShowRoom/${showRoomID}` },
+        refresh: forceRefresh,
       });
 
       if (!Array.isArray(data)) return { showRoomID, products: [] };
@@ -368,7 +377,7 @@ export const fetchInactiveProducts = createAsyncThunk(
 
 export const fetchProductByShowroomAndRecord = createAsyncThunk(
   "products/fetchProductByShowroomAndRecord",
-  async ({ showRoomCode, recordNumber }, { rejectWithValue }) => {
+  async ({ showRoomCode, recordNumber, forceRefresh = false }, { rejectWithValue }) => {
     try {
       const { data } = await publicGet("/", {
         params: {
@@ -376,6 +385,7 @@ export const fetchProductByShowroomAndRecord = createAsyncThunk(
           ShowRommCode: showRoomCode,
           RecordNumber: recordNumber,
         },
+        refresh: forceRefresh === true,
       });
 
       if (!Array.isArray(data)) return { showRoomCode, products: [] };

@@ -37,6 +37,7 @@ import {
 } from "@heroicons/react/24/outline";
 import AuthModal from "../Component/AuthModal";
 import { Helmet } from "react-helmet";
+import { useResolvedSeo } from "../Component/RouteSeoContext";
 import {
   slugify,
   isUUID,
@@ -257,6 +258,8 @@ const ProductDescription = () => {
   // responses render the page. Until then the destination shows its skeleton.
   const product = useMemo(
     () => freshProductDetails(resolvedProductId || rawParam),
+    // storedProduct is the Redux signal that productMemory received fresh detail data.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [storedProduct, resolvedProductId, rawParam]
   );
   const currentProduct = useMemo(() => product ? [product] : [], [product]);
@@ -269,9 +272,11 @@ const ProductDescription = () => {
     return "";
   }, [product, resolvedProduct, products, paramIsUUID, rawParam]);
 
-  const canonicalUrl = canonicalSlug
+  const canonicalUrl = product && canonicalSlug
     ? `https://www.frankotrading.com/product/${canonicalSlug}`
-    : "https://www.frankotrading.com/product";
+    : "";
+
+  useResolvedSeo({ canonical: canonicalUrl || null, robots: product && Number(product.status) === 1 ? "index, follow" : "noindex, follow" });
 
   // Build combined list of main productImage + otherImages
   const allProductImages = useMemo(() => {
@@ -425,7 +430,7 @@ const ProductDescription = () => {
   // catalogue waterfall. The catalogue is only needed for newly added slugs.
   useEffect(() => {
     if (!paramIsUUID && !resolvedProductId && !products?.length) dispatch(fetchProducts());
-  }, [dispatch, paramIsUUID, resolvedProductId]);
+  }, [dispatch, paramIsUUID, resolvedProductId, products?.length]);
 
   useEffect(() => {
     const id = paramIsUUID ? rawParam : resolvedProductId;
@@ -718,7 +723,9 @@ const ProductDescription = () => {
         }
       });
     } catch (error) {
-      if (!navigator.onLine) {
+      if (error?.code === "CART_ITEM_EXISTS") {
+        setCartSyncError(error.message);
+      } else if (!navigator.onLine) {
         setCartSyncError("No internet connection. Please check your network.");
       } else {
         setCartSyncError(
@@ -914,7 +921,7 @@ const ProductDescription = () => {
     if ((slugResolveError || productDetailError || catalogueError) && !productDetailLoading) {
       return (
         <div className="pd-root max-w-7xl mx-auto px-4 py-12 text-center">
-          <Helmet><meta name="robots" content="noindex" /></Helmet>
+
           <ExclamationTriangleIcon className="w-12 h-12 mx-auto mb-4" style={{ color: "#dc2626" }} />
           <h1 className="text-2xl font-bold mb-2">Product not found</h1>
           <p className="text-gray-500 mb-6">
@@ -930,7 +937,7 @@ const ProductDescription = () => {
         </div>
       );
     }
-    return <ProductDetailSkeleton />;
+    return <><ProductDetailSkeleton /></>;
   }
 
   const outOfStock = isOutOfStock(product);
@@ -1668,7 +1675,6 @@ const ProductDescription = () => {
           <meta property="og:type" content="product" />
           <meta name="twitter:card" content="summary_large_image" />
           {/* Canonical now points to slug URL - core SEO change */}
-          <link rel="canonical" href={canonicalUrl} />
         </Helmet>
 
         {/* JSON-LD with slug URL */}

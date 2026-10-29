@@ -42,6 +42,7 @@ import {
 import moment from "moment";
 import OrderModal from "../Component/OrderModal";
 import AuthModal from "../Component/AuthModal";
+import LoadingCircle from "../Component/LoadingCircle";
 
 const { fetchOrdersByCustomer, cancelOrder } = orderSliceActions;
 
@@ -239,23 +240,36 @@ const OrderHistoryPage = () => {
 
   // Instant session cache so orders appear immediately while background refresh runs
   const cacheKey = customerId ? `franko_orders_cache_${customerId}` : null;
-  const [cachedOrders, setCachedOrders] = useState(() => {
-    if (!cacheKey) return [];
+  const readCache = useCallback((key) => {
+    if (!key) return [];
     try {
-      const saved = sessionStorage.getItem(cacheKey);
-      return saved ? JSON.parse(saved) : [];
+      const saved = JSON.parse(sessionStorage.getItem(key));
+      return Array.isArray(saved) ? saved : [];
     } catch {
       return [];
     }
-  });
-
-  // Optimistic overrides for instant UI feedback on cancel or delivery updates
+  }, []);
+  // Optimistic overrides for instant UI feedback on cancel or delivery updates.
   const [optimisticOverrides, setOptimisticOverrides] = useState({});
+  const [requestState, setRequestState] = useState({ customerId: null, pending: true, loaded: false });
+  const requestVersion = useRef(0);
+  const activeCustomerId = useRef(customerId);
+  activeCustomerId.current = customerId;
+  const [orderCache, setOrderCache] = useState(() => ({ key: cacheKey, orders: readCache(cacheKey) }));
+  const cachedOrders = useMemo(() => orderCache.key === cacheKey ? orderCache.orders : [], [orderCache, cacheKey]);
+  useEffect(() => {
+    setOrderCache({ key: cacheKey, orders: readCache(cacheKey) });
+    setOptimisticOverrides({});
+  }, [cacheKey, readCache]);
+
   const prefetchedOrdersRef = useRef(new Set());
 
   const rawOrders = useMemo(() => {
-    const reduxOrders = Array.isArray(ordersData.orders) ? ordersData.orders : [];
-    const baseList = reduxOrders.length > 0 ? reduxOrders : cachedOrders;
+    // Never show the previous account's Redux orders while switching accounts.
+    const reduxOrders = requestState.customerId === customerId && requestState.loaded && Array.isArray(ordersData.orders)
+      ? ordersData.orders : [];
+    const hasServerResult = requestState.customerId === customerId && requestState.loaded && !ordersData.errorStatus?.orders;
+    const baseList = hasServerResult ? reduxOrders : cachedOrders;
 
     return baseList.map((order) => {
       const code = order?.orderCode || order?.orderId;
@@ -264,22 +278,22 @@ const OrderHistoryPage = () => {
       }
       return order;
     });
-  }, [ordersData.orders, cachedOrders, optimisticOverrides]);
+  }, [ordersData.orders, ordersData.errorStatus?.orders, cachedOrders, optimisticOverrides, customerId, requestState]);
 
   useEffect(() => {
     if (
       cacheKey &&
-      Array.isArray(ordersData.orders) &&
-      ordersData.orders.length > 0
+      Array.isArray(ordersData.orders) && !ordersData.errorStatus?.orders
     ) {
-      setCachedOrders(ordersData.orders);
+      if (requestState.customerId !== customerId || !requestState.loaded) return;
+      setOrderCache({ key: cacheKey, orders: ordersData.orders });
       try {
         sessionStorage.setItem(cacheKey, JSON.stringify(ordersData.orders));
       } catch {
         // Ignore storage quota errors
       }
     }
-  }, [cacheKey, ordersData.orders]);
+  }, [cacheKey, customerId, ordersData.orders, ordersData.errorStatus?.orders, requestState]);
 
   const loading = useMemo(() => {
     if (
@@ -292,6 +306,7 @@ const OrderHistoryPage = () => {
   }, [ordersData.loading, ordersData.loadingStatus]);
 
   const error = useMemo(() => {
+    if (requestState.customerId !== customerId || requestState.pending) return null;
     const raw =
       ordersData.errorStatus?.orders ?? ordersData.error?.orders ?? null;
     if (typeof raw === "string" && raw.trim()) return raw;
@@ -312,7 +327,7 @@ const OrderHistoryPage = () => {
       if (firstString) return firstString;
     }
     return null;
-  }, [ordersData.error, ordersData.errorStatus]);
+  }, [ordersData.error, ordersData.errorStatus, requestState, customerId]);
 
   const today = moment();
   const defaultFromDate = moment("01/01/2000", "MM/DD/YYYY");
@@ -341,11 +356,21 @@ const OrderHistoryPage = () => {
   }, []);
 
   const handleRefresh = useCallback(() => {
-    if (hasValidCustomer) {
-      const [from, to] = dateRange.map((date) => date.format("MM/DD/YYYY"));
-      dispatch(fetchOrdersByCustomer({ from, to, customerId }));
+    const version = ++requestVersion.current;
+    if (!hasValidCustomer) {
+      setRequestState({ customerId: null, pending: false, loaded: false });
+      return;
     }
+    setRequestState({ customerId, pending: true, loaded: false });
+    const [from, to] = dateRange.map((date) => date.format("MM/DD/YYYY"));
+    Promise.resolve(dispatch(fetchOrdersByCustomer({ from, to, customerId }))).finally(() => {
+      if (version === requestVersion.current && activeCustomerId.current === customerId) {
+        setRequestState({ customerId, pending: false, loaded: true });
+      }
+    });
   }, [hasValidCustomer, dateRange, customerId, dispatch]);
+
+  useEffect(() => () => { requestVersion.current += 1; }, []);
 
   useEffect(() => {
     handleRefresh();
@@ -886,18 +911,7 @@ const OrderHistoryPage = () => {
     </div>
   );
 
-  const LoadingState = () => (
-    <div className="oh-empty-state">
-      <div className="oh-loading-wrap">
-        <div className="oh-spinner" />
-        <div className="oh-spinner-ring" />
-      </div>
-      <h3 className="oh-empty-title" style={{ marginTop: 20 }}>
-
-      </h3>
-      <p className="oh-empty-desc">Fetching latest order information...</p>
-    </div>
-  );
+  const LoadingState = () => <LoadingCircle compact label="Fetching your orders…" />;
 
   const ErrorState = () => (
     <div className="oh-empty-state">
@@ -947,10 +961,12 @@ const OrderHistoryPage = () => {
   }
 
   // Only block the table if we have no cached/existing orders at all
-  const showInitialLoader = loading && rawOrders.length === 0;
+  const showInitialLoader = rawOrders.length === 0 && !error &&
+    (requestState.customerId !== customerId || requestState.pending || loading);
 
   return (
     <>
+      <title>Your orders | Franko Trading</title>
       <style>{styles}</style>
       <div className="oh-root">
         <div className="oh-container">

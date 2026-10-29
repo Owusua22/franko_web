@@ -1,0 +1,73 @@
+name: Refresh catalogue SEO
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */6 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: catalogue-seo
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Franko_web
+    env:
+      SEO_SOURCE: live
+      VITE_LAMBDA_BASE_URL: ${{ secrets.VITE_LAMBDA_BASE_URL }}
+      VITE_LAMBDA_HEADER_NAME: ${{ secrets.VITE_LAMBDA_HEADER_NAME }}
+      VITE_LAMBDA_HEADER_VALUE: ${{ secrets.VITE_LAMBDA_HEADER_VALUE }}
+      VITE_SECRET_KEY: ${{ secrets.VITE_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Franko_web/package-lock.json
+
+      - name: Restore product/brand rename archive
+        uses: actions/cache/restore@v4
+        with:
+          path: Franko_web/seo/previous-index.json
+          key: catalogue-seo-index-${{ github.run_id }}
+          restore-keys: catalogue-seo-index-
+
+      - run: npm ci --legacy-peer-deps --no-audit --no-fund
+      - run: npm test
+      - run: npm run build
+
+      - name: Save product/brand rename archive
+        if: success()
+        uses: actions/cache/save@v4
+        with:
+          path: Franko_web/seo/previous-index.json
+          key: catalogue-seo-index-${{ github.run_id }}
+
+      - name: Upload deployable site
+        uses: actions/upload-artifact@v4
+        with:
+          name: franko-dist-${{ github.run_number }}
+          path: |
+            Franko_web/dist
+            Franko_web/seo/previous-index.json
+          retention-days: 30
+
+      # Hosting is intentionally not assumed. Configure SEO_DEPLOY_COMMAND in
+      # repository secrets to publish the freshly built dist/ directory.
+      - name: Deploy (optional)
+        env:
+          SEO_DEPLOY_COMMAND: ${{ secrets.SEO_DEPLOY_COMMAND }}
+        run: |
+          if [ -n "$SEO_DEPLOY_COMMAND" ]; then
+            bash -c "$SEO_DEPLOY_COMMAND"
+          else
+            echo "Build complete. Set SEO_DEPLOY_COMMAND to publish dist/ automatically."
+          fi

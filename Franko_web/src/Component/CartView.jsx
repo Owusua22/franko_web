@@ -51,7 +51,7 @@ const formatCurrency = (amount, decimals = 2) => {
 const formatGHS = (amount) => `GH₵${formatCurrency(amount, 2)}`;
 
 /* Reusable full-page spinner (also used from Checkout). */
-export function FullPageSpinner({ telecel = false, message = "Loading…" }) {
+export function FullPageSpinner({ telecel = false, message = "Preparing your cart…" }) {
   return (
     <>
       <style>{cartStyles}</style>
@@ -60,7 +60,7 @@ export function FullPageSpinner({ telecel = false, message = "Loading…" }) {
         style={{ background: "var(--cart-bg-subtle)" }}
       >
         <div className="text-center">
-          <div className="cart-spinner-large mx-auto mb-4" aria-label="Loading" role="status"></div>
+          <div className="cart-spinner-large mx-auto mb-4" aria-label="Please wait" role="status"></div>
           <p style={{ color: "var(--cart-mid)", fontWeight: 600, margin: 0 }}>{message}</p>
         </div>
       </div>
@@ -342,7 +342,7 @@ const CartView = ({ telecel = false, onOpenSidebar = null }) => {
     !cartId || (loading && cart.length === 0) || (!initialLoadDone && cart.length === 0 && !error);
 
   if (isInitialLoading) {
-    return <FullPageSpinner telecel={telecel} message="Loading your cart…" />;
+    return <FullPageSpinner telecel={telecel} message="Preparing your cart…" />;
   }
 
   if (error && cart.length === 0) {

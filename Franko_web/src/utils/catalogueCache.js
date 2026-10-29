@@ -1,2 +1,2 @@
 import { publicGet } from "./publicReadCache";
-export const getCatalogue = () => publicGet("/", { params: { endpoint: "/Product/Product-Get" } });
+export const getCatalogue = ({ forceRefresh = false } = {}) => publicGet("/", { params: { endpoint: "/Product/Product-Get" }, refresh: forceRefresh });
