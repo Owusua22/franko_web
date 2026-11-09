@@ -1,12 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { XCircle, AlertTriangle, ShoppingCart, RefreshCw, HelpCircle, ArrowLeft } from "lucide-react";
 
 function Cancellation() {
-  const [isVisible, setIsVisible] = useState(false);
+  const isVisible = true;
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
-    setTimeout(() => setIsVisible(true), 100);
   }, []);
 
   const handleTryAgain = () => {

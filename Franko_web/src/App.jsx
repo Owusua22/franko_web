@@ -1,7 +1,7 @@
 import ProductDetailSkeleton from "./Component/ProductDetailSkeleton";
 import { productPageModule } from "./utils/productPageModule";
 import { appStorage as localStorage } from "./utils/secureLocalStorageInit";
-import { lazy, Suspense, useState, useEffect } from "react";
+import { lazy, Suspense, useState, useEffect, useRef } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logoutCustomer } from "./Redux/Slice/customerSlice";
@@ -13,8 +13,8 @@ import ScrollToTop from "./Pages/ScrollToTop";
 
 /* ==================== PUBLIC PAGES (CUSTOMER) ==================== */
 const Home = lazy(() => import("./Pages/Home"));
-const About = lazy(() => import("./Pages/About"));
-const Contact = lazy(() => import("./Pages/Contact"));
+import About from "./Pages/About";
+import Contact from "./Pages/Contact";
 const BrandsPage = lazy(() => import("./Pages/Brands"));
 const ShowroomProductsPage = lazy(() => import("./Pages/ShowRooomProducts"));
 const Phones = lazy(() => import("./Pages/Phones"));
@@ -30,11 +30,11 @@ const Combo = lazy(() => import("./Pages/Combo"));
 const Airconditioners = lazy(() => import("./Pages/AC"));
 const Checkout = lazy(() => import("./Pages/Checkout"));
 const OrderReceived = lazy(() => import("./Pages/OrderReceived"));
-const Locations = lazy(() => import("./Pages/Locations"));
-const Cancellation = lazy(() => import("./Pages/OrderCancelled"));
+import Locations from "./Pages/Locations";
+import Cancellation from "./Pages/OrderCancelled";
 const Account = lazy(() => import("./Pages/Account"));
 const Products = lazy(() => import("./Pages/Products"));
-const Terms = lazy(() => import("./Pages/Terms"));
+import Terms from "./Pages/Terms";
 const OrderHistory = lazy(() => import("./Pages/OrderHistory"));
 const Wishlist = lazy(() => import("./Pages/Wishlist"));
 const OrderSuccess = lazy(() => import("./Pages/OrderSucess"));
@@ -204,6 +204,22 @@ const StorageManager = () => {
    - Old UUID URLs automatically redirect via ProductDescription
    - No backend change required
 ═══════════════════════════════════════════════════════════════ */
+// The initial document PageView is sent by index.html. Track client-side
+// navigations separately for the newly added pixel, without double counting the
+// first render (including React StrictMode's development effect replay).
+function MetaPageViews() {
+  const { pathname, search } = useLocation();
+  const lastPage = useRef(null);
+  useEffect(() => {
+    const page = pathname + search;
+    if (lastPage.current !== null && lastPage.current !== page && typeof window.fbq === "function") {
+      window.fbq("trackSingle", "1039651225691142", "PageView");
+    }
+    lastPage.current = page;
+  }, [pathname, search]);
+  return null;
+}
+
 function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const { pathname } = useLocation();
@@ -225,6 +241,7 @@ function App() {
 
   return (
     <>
+      <MetaPageViews />
       <StorageManager />
       <AuthenticationChecker />
       {!shouldHideNavbar(pathname) && <Nav />}
