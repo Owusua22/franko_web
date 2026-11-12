@@ -65,6 +65,17 @@ const ProductDetailModal = ({ productID, isModalVisible, onClose }) => {
       product.ProductID ?? product.id ?? productID;
     const session = modalSessionRef.current;
 
+    // Check if already in cart to prevent duplicate additions from non-cart pages
+    const existingItem = cartItems?.find(
+      (item) =>
+        String(item.ProductId) === String(id)
+    );
+
+    if (existingItem) {
+      setAddError("Item already in cart. Please update quantity from the Cart Page.");
+      return;
+    }
+
     setAddError("");
     setAdding(true);
 
@@ -134,8 +145,12 @@ const ProductDetailModal = ({ productID, isModalVisible, onClose }) => {
         <style>{modalStyles}</style>
         <div className="pdm-root">
           <div className="pdm-loading">
+            {/* Franko Logo Animation / Skeleton Loader */}
             <div className="pdm-spinner" />
-            <p className="pdm-loading-text"></p>
+            <p className="pdm-loading-text">Loading product details from database...</p>
+            {/* Optional skeleton lines for text */}
+            <div style={{ width: '80%', height: '10px', background: '#eee', marginTop: '16px', borderRadius: '4px', animation: 'pdm-shimmer 1.5s infinite' }} />
+            <div style={{ width: '60%', height: '10px', background: '#eee', marginTop: '8px', borderRadius: '4px', animation: 'pdm-shimmer 1.5s infinite' }} />
           </div>
         </div>
       </Modal>
@@ -354,6 +369,7 @@ const modalStyles = `
     border-radius: 50%; animation: pdm-spin 0.8s linear infinite; margin-bottom: 16px;
   }
   @keyframes pdm-spin { to { transform: rotate(360deg); } }
+  @keyframes pdm-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
   .pdm-loading-text { font-size: 15px; font-weight: 500; color: #888; }
 
   /* ==================== CONTAINER ==================== */

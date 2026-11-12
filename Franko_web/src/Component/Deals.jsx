@@ -119,10 +119,20 @@ const Deals = () => {
 
   const handleAddToCart = async (product) => {
     try {
+      // Check if already in cart to prevent duplicate additions from non-cart pages
+      const existingItem = cartItems?.find(
+        (item) =>
+          String(item.ProductId) === String(product.productID || product.id || product.productId)
+      );
+
+      if (existingItem) {
+        throw new Error("Item already in cart. Please update quantity from the Cart Page.");
+      }
+
       await addProductToCart(product);
       showNotification("Added to cart successfully", "success");
-    } catch {
-      showNotification("Failed to add to cart", "error");
+    } catch (error) {
+      showNotification(error?.message || "Failed to add to cart", "error");
     }
   };
 
@@ -870,7 +880,7 @@ const Deals = () => {
             style={{ paddingBottom: 4, paddingLeft: 1, paddingRight: 1 }}
           >
             {(productsByShowroom?.[showroomID]
-            )?.map((product) => {
+            )?.map((product, productIndex) => {
               if (!product) return null;
 
               const {
@@ -908,9 +918,14 @@ const Deals = () => {
                       }}
                       onClick={() => navigate(getProductUrl({ productName }))}
                     >
-                      <img loading="lazy" decoding="async"
+                      <img
                         src={getValidImageUrl(productImage)}
                         alt={productName}
+                        loading={productIndex < 4 ? "eager" : "lazy"}
+                        fetchPriority={productIndex === 0 ? "high" : "auto"}
+                        decoding="async"
+                        width={300}
+                        height={300}
                       />
                     </div>
 
@@ -971,15 +986,14 @@ const Deals = () => {
                 </div>
               );
             })}
-
-            {(
+            {
               <Link to={`/showroom/${showroomID}`} className="deals-view-all">
                 <div className="deals-view-all-circle">
                   <ArrowRightIcon style={{ width: 20, height: 20, color: "var(--deals-green)", transition: "color 0.2s" }} />
                 </div>
                 <span className="deals-view-all-label">View All</span>
               </Link>
-            )}
+            }
           </div>
 
           {showRightArrow && (

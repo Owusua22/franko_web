@@ -117,10 +117,20 @@ const TeleDeals = () => {
 
   const handleAddToCart = async (product) => {
     try {
+      // Check if already in cart to prevent duplicate additions from non-cart pages
+      const existingItem = cartItems?.find(
+        (item) =>
+          String(item.ProductId) === String(product.productID || product.id || product.productId)
+      );
+
+      if (existingItem) {
+        throw new Error("Item already in cart. Please update quantity from the Cart Page.");
+      }
+
       await addProductToCart(product);
       showNotification("Added to cart successfully", "success");
-    } catch {
-      showNotification("Failed to add to cart", "error");
+    } catch (error) {
+      showNotification(error?.message || "Failed to add to cart", "error");
     }
   };
 
@@ -356,6 +366,7 @@ const TeleDeals = () => {
           align-items: center;
           justify-content: center;
           padding: 10px;
+
           overflow: hidden;
         }
 
@@ -653,7 +664,7 @@ const TeleDeals = () => {
             style={{ paddingBottom: 4, paddingLeft: 1, paddingRight: 1 }}
           >
             {(sortedProducts
-            ).map((product) => {
+            ).map((product, index) => {
               if (!product) return null;
 
               const {
@@ -698,9 +709,14 @@ const TeleDeals = () => {
                       }}
                       onClick={() => navigate(getProductUrl({ productName }))}
                     >
-                      <img loading="lazy" decoding="async"
+                      <img
                         src={getValidImageUrl(productImage)}
                         alt={productName}
+                        loading={sortedProducts.indexOf(product) < 4 ? "eager" : "lazy"}
+                        fetchPriority={sortedProducts.indexOf(product) === 0 ? "high" : "auto"}
+                        decoding="async"
+                        width={300}
+                        height={300}
                       />
                     </div>
 

@@ -118,10 +118,28 @@ const ProductCard = ({ currentProducts = [], navigate, loading = false }) => {
 
   const handleAddToCart = async (product) => {
     try {
+      // Check if already in cart to prevent duplicate additions from non-cart pages
+      const existingItem = cartItems?.find(
+        (item) =>
+          String(item.ProductId) === String(product.productID || product.id || product.productId)
+      );
+
+      // If it's already in the cart, we can update quantity from the cart page, 
+      // but from here (ProductCard/Deals/etc) we only allow ONE add per session/click.
+      // If the user wants to add more, they should go to the cart page.
+      // The requirement: "ALLOW THE USER TO ADD TO CART JUST ONCE AND UPDATE FROM THE CART PAGE"
+      // We will enforce this by checking if we already added this product in this session or if it's in cart.
+      // To keep it simple and robust, we'll check if the product is already in cartItems.
+      // If it is, we throw an error/notification saying "Update from Cart Page".
+      
+      if (existingItem) {
+        throw new Error("Item already in cart. Please update quantity from the Cart Page.");
+      }
+
       await addProductToCart(product);
       showNotification("Added to cart successfully", "success");
-    } catch  {
-      showNotification("Failed to add to cart", "error");
+    } catch (error) {
+      showNotification(error?.message || "Failed to add to cart", "error");
     }
   };
 
@@ -167,10 +185,15 @@ const ProductCard = ({ currentProducts = [], navigate, loading = false }) => {
                       className="h-40 md:h-52 w-full flex items-center justify-center cursor-pointer"
                       onClick={() => navigate(getProductUrl({ productName }))}
                     >
-                      <img loading="lazy" decoding="async"
+                      <img
                         src={imageUrl}
                         alt={productName}
-                        className="h-full object-contain transition-transform duration-300 group-hover:scale-105"
+                        loading={currentProducts.indexOf(product) === 0 ? "eager" : "lazy"}
+                        fetchPriority={currentProducts.indexOf(product) === 0 ? "high" : "auto"}
+                        decoding="async"
+                        width={300}
+                        height={300}
+                        className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
                       />
                     </div>
 

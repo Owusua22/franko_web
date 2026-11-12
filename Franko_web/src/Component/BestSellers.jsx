@@ -120,10 +120,20 @@ const BestSellers = () => {
 
   const handleAddToCart = async (product) => {
     try {
+      // Check if already in cart to prevent duplicate additions from non-cart pages
+      const existingItem = cartItems?.find(
+        (item) =>
+          String(item.ProductId) === String(product.productID || product.id || product.productId)
+      );
+
+      if (existingItem) {
+        throw new Error("Item already in cart. Please update quantity from the Cart Page.");
+      }
+
       await addProductToCart(product);
       showNotification("Added to cart successfully", "success");
-    } catch {
-      showNotification("Failed to add to cart", "error");
+    } catch (error) {
+      showNotification(error?.message || "Failed to add to cart", "error");
     }
   };
 
@@ -791,9 +801,14 @@ const BestSellers = () => {
                       }}
                       onClick={() => navigate(getProductUrl({ productName }))}
                     >
-                      <img loading="lazy" decoding="async"
+                      <img
+                        loading={((productsByShowroom?.[activeShowroom] || []).indexOf(product) < 4) ? "eager" : "lazy"}
+                        decoding="async"
+                        fetchPriority={((productsByShowroom?.[activeShowroom] || []).indexOf(product) === 0) ? "high" : "auto"}
                         src={getValidImageUrl(productImage)}
                         alt={productName}
+                        width={300}
+                        height={300}
                       />
                     </div>
 
