@@ -1,9 +1,9 @@
 import { Link } from "react-router-dom";
 import { FaTiktok, FaWhatsapp, FaFacebookF, FaXTwitter } from "react-icons/fa6";
 import { Phone, MapPin, ChevronRight } from "lucide-react";
-import app from "../assets/apps.png";
-import play from "../assets/plays.png";
-import logo from "../assets/frankoIcon.png";
+import app from "../assets/apps.webp";
+import play from "../assets/plays.webp";
+import logo from "../assets/frankoIcon-128.webp";
 
 const Footer = () => {
   const companyLinks = [
@@ -408,7 +408,7 @@ const Footer = () => {
 
           {/* ==================== MOBILE: Brand + Contact ==================== */}
           <div className="ft-brand-row">
-            <img src={logo} alt="Franko Trading" className="ft-brand-logo-sm" />
+            <img src={logo} alt="Franko Trading" className="ft-brand-logo-sm" width={81} height={56} loading="lazy" decoding="async" />
             <div className="ft-brand-contact-sm">
               <a href="tel:+233503607980" className="ft-call-btn-sm" title="Call us">
                 <Phone style={{ width: 14, height: 14 }} />
@@ -458,14 +458,14 @@ const Footer = () => {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <img src={app} alt="App Store" className="ft-mobile-app-img" />
+                <img src={app} alt="Download on the App Store" className="ft-mobile-app-img" width={136} height={49} loading="lazy" decoding="async" />
               </a>
               <a
                 href="https://play.google.com/store/apps/details?id=com.poldark.mrfranky2"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <img src={play} alt="Google Play" className="ft-mobile-app-img" />
+                <img src={play} alt="Get it on Google Play" className="ft-mobile-app-img" width={137} height={49} loading="lazy" decoding="async" />
               </a>
             </div>
           </div>
@@ -474,7 +474,7 @@ const Footer = () => {
           <div className="ft-desktop-grid">
             {/* Brand */}
             <div>
-              <img src={logo} alt="Franko Trading" className="ft-brand-logo" />
+              <img src={logo} alt="Franko Trading" className="ft-brand-logo" width={120} height={83} loading="lazy" decoding="async" />
               <p className="ft-brand-desc">
                 Ghana's premier destination for phones, electronics, and accessories at unbeatable prices.
               </p>
@@ -538,7 +538,7 @@ const Footer = () => {
                   rel="noopener noreferrer"
                   className="ft-app-link"
                 >
-                  <img src={app} alt="App Store" className="ft-app-img" />
+                  <img src={app} alt="Download on the App Store" className="ft-app-img" width={136} height={49} loading="lazy" decoding="async" />
                 </a>
                 <a
                   href="https://play.google.com/store/apps/details?id=com.poldark.mrfranky2"
@@ -546,7 +546,7 @@ const Footer = () => {
                   rel="noopener noreferrer"
                   className="ft-app-link"
                 >
-                  <img src={play} alt="Google Play" className="ft-app-img" />
+                  <img src={play} alt="Get it on Google Play" className="ft-app-img" width={137} height={49} loading="lazy" decoding="async" />
                 </a>
               </div>
             </div>

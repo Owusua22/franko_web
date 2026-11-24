@@ -23,6 +23,8 @@ import {
 } from "../Redux/Slice/wishlistSlice";
 import useAddToCart from "./Cart";
 
+import { PLACEHOLDER_IMAGE, PRODUCT_IMAGE_BASE } from "../config/media";
+
 const SHOWROOM_ID = "a0631779-0be9-4cc3-825d-5b381343859c";
 const INITIAL_FETCH_COUNT = 60;
 const PAGE_SIZE = 10;
@@ -79,9 +81,9 @@ const getPhase = (now) =>
   now < PROMO_START ? "before" : now < PROMO_END ? "live" : "ended";
 
 const getImageUrl = (imagePath) => {
-  if (!imagePath) return "https://via.placeholder.com/300x300?text=Product";
+  if (!imagePath) return PLACEHOLDER_IMAGE;
   if (imagePath.includes("\\")) {
-    return `https://testing.frankotrading.com/Media/Products_Images/${imagePath
+    return `${PRODUCT_IMAGE_BASE}${imagePath
       .split("\\")
       .pop()}`;
   }
@@ -629,7 +631,7 @@ const SpeedShoppingPage = () => {
 
         .shp-card-old-price {
           margin-top: 2px;
-          color: #99919d;
+          color: #4b5563; /* was #99919d - fails WCAG AA at 12px */
           font-size: clamp(10px, 2.4vw, 12px);
           text-decoration: line-through;
         }

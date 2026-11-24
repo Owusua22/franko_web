@@ -277,16 +277,25 @@ const CategoryComponent = () => {
               className="category-scroll flex gap-2 md:gap-8 lg:gap-10 overflow-x-auto md:px-4 lg:px-10"
             >
               {categories.map((cat, idx) => (
-                <div
+                <button
+                  type="button"
                   key={idx}
                   onClick={() => handleCategoryClick(cat)}
                   className="category-card flex-shrink-0 w-[100px] md:w-[120px] lg:w-[140px]"
                 >
                   <div className="category-icon-wrapper">
-                    <img src={cat.img} alt={cat.name} className="category-icon" loading="lazy" />
+                    <img
+                      src={cat.img}
+                      alt=""
+                      width={96}
+                      height={96}
+                      className="category-icon"
+                      loading="lazy"
+                      decoding="async"
+                    />
                   </div>
                   <p className="category-name">{cat.name}</p>
-                </div>
+                </button>
               ))}
             </div>
 

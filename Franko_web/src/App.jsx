@@ -13,8 +13,8 @@ import ScrollToTop from "./Pages/ScrollToTop";
 
 /* ==================== PUBLIC PAGES (CUSTOMER) ==================== */
 const Home = lazy(() => import("./Pages/Home"));
-import About from "./Pages/About";
-import Contact from "./Pages/Contact";
+const About = lazy(() => import("./Pages/About"));
+const Contact = lazy(() => import("./Pages/Contact"));
 const BrandsPage = lazy(() => import("./Pages/Brands"));
 const ShowroomProductsPage = lazy(() => import("./Pages/ShowRooomProducts"));
 const Phones = lazy(() => import("./Pages/Phones"));
@@ -30,13 +30,13 @@ const Combo = lazy(() => import("./Pages/Combo"));
 const Airconditioners = lazy(() => import("./Pages/AC"));
 const Checkout = lazy(() => import("./Pages/Checkout"));
 const OrderReceived = lazy(() => import("./Pages/OrderReceived"));
-import Locations from "./Pages/Locations";
-import Cancellation from "./Pages/OrderCancelled";
+const Locations = lazy(() => import("./Pages/Locations"));
+const Cancellation = lazy(() => import("./Pages/OrderCancelled"));
 const Account = lazy(() => import("./Pages/Account"));
 const Products = lazy(() => import("./Pages/Products"));
-import Terms from "./Pages/Terms";
-import PhoneSpeed from "./Pages/PhoneSpeed";
-import Speed from "./Pages/Speed";
+const Terms = lazy(() => import("./Pages/Terms"));
+const PhoneSpeed = lazy(() => import("./Pages/PhoneSpeed"));
+const Speed = lazy(() => import("./Pages/Speed"));
 
 
 const OrderHistory = lazy(() => import("./Pages/OrderHistory"));
@@ -245,12 +245,19 @@ function App() {
 
   return (
     <>
+      {/* First tab stop: lets keyboard / screen-reader users jump straight
+          past the navigation. Required for the "main landmark" audit too. */}
+      <a className="skip-link" href="#main-content">
+        Skip to main content
+      </a>
+
       <MetaPageViews />
       <StorageManager />
       <AuthenticationChecker />
       {!shouldHideNavbar(pathname) && <Nav />}
       <ScrollToTop />
 
+      <main id="main-content" tabIndex={-1}>
       <Suspense key={pathname} fallback={pathname.startsWith("/product/") ? <ProductDetailSkeleton /> : null}>
       <Routes>
         <Route path="/" element={<Home />} />
@@ -303,6 +310,7 @@ function App() {
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
       </Suspense>
+      </main>
     </>
   );
 }

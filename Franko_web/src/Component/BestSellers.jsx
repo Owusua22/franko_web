@@ -23,6 +23,8 @@ import {
 import Tooltip from "@material-tailwind/react/components/Tooltip";
 import useAddToCart from "./Cart";
 
+import { PLACEHOLDER_IMAGE, PRODUCT_IMAGE_BASE, productImageUrl } from "../config/media";
+
 // ==================== NOTIFICATION ====================
 
 const Notification = ({ message, type, isVisible, onClose }) => {
@@ -206,12 +208,7 @@ const BestSellers = () => {
 
   // ==================== HELPERS ====================
 
-  const getValidImageUrl = (imagePath) => {
-    if (!imagePath) return "https://via.placeholder.com/150";
-    return imagePath.includes("\\")
-      ? `https://testing.frankotrading.com/Media/Products_Images/${imagePath.split("\\").pop()}`
-      : imagePath;
-  };
+  const getValidImageUrl = (imagePath) => productImageUrl(imagePath, { width: 300 });
 
   const formatPrice = (price) => {
     if (!price || isNaN(price)) return "₵0.00";
@@ -521,7 +518,7 @@ const BestSellers = () => {
         .bs-card-old-price {
           font-size: 12px;
           font-weight: 400;
-          color: var(--bs-light);
+          color: #4b5563; /* was #888 - 3.5:1 contrast, fails WCAG AA */
           text-decoration: line-through;
           margin-top: 2px;
         }
@@ -742,6 +739,8 @@ const BestSellers = () => {
             <button
               onClick={() => scroll("left")}
               className="bs-scroll-btn bs-scroll-btn-left"
+              type="button"
+              aria-label="Scroll best sellers left"
             >
               <ChevronLeftIcon
                 style={{ width: 16, height: 16, color: "var(--bs-green)" }}
@@ -802,9 +801,9 @@ const BestSellers = () => {
                       onClick={() => navigate(getProductUrl({ productName }))}
                     >
                       <img
-                        loading={((productsByShowroom?.[activeShowroom] || []).indexOf(product) < 4) ? "eager" : "lazy"}
+                        loading="lazy"
                         decoding="async"
-                        fetchPriority={((productsByShowroom?.[activeShowroom] || []).indexOf(product) === 0) ? "high" : "auto"}
+                        fetchPriority="low"
                         src={getValidImageUrl(productImage)}
                         alt={productName}
                         width={300}
@@ -909,7 +908,7 @@ const BestSellers = () => {
             {productsByShowroom?.[activeShowroom]?.length > 0 && (
                 <Link
                   to={`/showroom/${activeShowroom}`}
-                  className="bs-view-all"
+                  className="bs-view-all" aria-label="View all best sellers"
                 >
                   <div className="bs-view-all-circle">
                     <ArrowRightIcon
@@ -930,6 +929,8 @@ const BestSellers = () => {
             <button
               onClick={() => scroll("right")}
               className="bs-scroll-btn bs-scroll-btn-right"
+              type="button"
+              aria-label="Scroll best sellers right"
             >
               <ChevronRightIcon
                 style={{ width: 16, height: 16, color: "var(--bs-green)" }}

@@ -17,6 +17,8 @@ import {
 } from "@heroicons/react/24/solid";
 import Tooltip from "@material-tailwind/react/components/Tooltip";
 
+import { PLACEHOLDER_IMAGE, PRODUCT_IMAGE_BASE, productImageUrl } from "../config/media";
+
 // ==================== NOTIFICATION COMPONENT ====================
 
 const Notification = ({ message, type, isVisible, onClose }) => {
@@ -69,7 +71,9 @@ const ProductsPage = () => {
   const dispatch = useDispatch();
   const { products: _products, loading } = useSelector((state) => state.products || {});
   const wishlist = useSelector((state) => state.wishlist.items);
-  const { addProductToCart, loading: cartLoading } = useAddToCart();
+  // `cartItems` is read by the duplicate-add guard below - it has to be
+  // destructured or the add-to-cart handler throws a ReferenceError.
+  const { addProductToCart, loading: cartLoading, cartItems } = useAddToCart();
 
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedProductId, setSelectedProductId] = useState(null);
@@ -156,12 +160,7 @@ const ProductsPage = () => {
     })}`;
   };
 
-  const getValidImageUrl = (imagePath) => {
-    if (!imagePath) return "https://via.placeholder.com/150";
-    return imagePath.includes("\\")
-      ? `https://testing.frankotrading.com/Media/Products_Images/${imagePath.split("\\").pop()}`
-      : imagePath;
-  };
+  const getValidImageUrl = (imagePath) => productImageUrl(imagePath, { width: 300 });
 
   const isInWishlist = (id) => wishlist.some((item) => item.id === id);
 
@@ -464,7 +463,7 @@ const ProductsPage = () => {
         .pp-card-old-price {
           font-size: 12px;
           font-weight: 400;
-          color: var(--pp-light);
+          color: #4b5563; /* was #888 - 3.5:1 contrast, fails WCAG AA */
           text-decoration: line-through;
           margin-top: 2px;
         }
@@ -640,14 +639,14 @@ const ProductsPage = () => {
                         <img
                           src={getValidImageUrl(productImage)}
                           alt={productName}
-                          loading={(filteredProducts.indexOf(product) < 4) ? "eager" : "lazy"}
-                          fetchPriority={(filteredProducts.indexOf(product) === 0) ? "high" : "auto"}
+                          loading="lazy"
+                          fetchPriority="low"
                           decoding="async"
                           width={300}
                           height={300}
                           onError={(e) => {
                             e.target.onerror = null;
-                            e.target.src = "https://via.placeholder.com/150";
+                            e.target.src = PLACEHOLDER_IMAGE;
                           }}
                         />
                       </div>

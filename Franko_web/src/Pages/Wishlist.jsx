@@ -5,6 +5,8 @@ import { Heart, ShoppingBag, X, Plus, Star, Filter } from "lucide-react";
 import { useSelector, useDispatch } from "react-redux";
 import { removeFromWishlist } from "../Redux/Slice/wishlistSlice";
 
+import { PLACEHOLDER_IMAGE, PRODUCT_IMAGE_BASE } from "../config/media";
+
 const Wishlist = () => {
   const wishlist = useSelector((state) => state.wishlist.items);
   const dispatch = useDispatch();
@@ -16,8 +18,8 @@ const Wishlist = () => {
 
   const getImageUrl = (path) =>
     path?.includes("\\")
-      ? `https://testing.frankotrading.com/Media/Products_Images/${path.split("\\").pop()}`
-      : path || "https://via.placeholder.com/400x400?text=No+Image";
+      ? `${PRODUCT_IMAGE_BASE}${path.split("\\").pop()}`
+      : path || PLACEHOLDER_IMAGE;
 
   const handleCardClick = (product) => {
     navigate(getProductUrl(product));

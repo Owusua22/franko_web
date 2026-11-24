@@ -22,6 +22,8 @@ import {
 import Tooltip from "@material-tailwind/react/components/Tooltip";
 import useAddToCart from "./Cart";
 
+import { PLACEHOLDER_IMAGE, PRODUCT_IMAGE_BASE, productImageUrl } from "../config/media";
+
 // ==================== NOTIFICATION ====================
 
 const Notification = ({ message, type, isVisible, onClose }) => {
@@ -195,12 +197,7 @@ const LaptopDeals = () => {
 
   // ==================== HELPERS ====================
 
-  const getValidImageUrl = (imagePath) => {
-    if (!imagePath) return "https://via.placeholder.com/150";
-    return imagePath.includes("\\")
-      ? `https://testing.frankotrading.com/Media/Products_Images/${imagePath.split("\\").pop()}`
-      : imagePath;
-  };
+  const getValidImageUrl = (imagePath) => productImageUrl(imagePath, { width: 300 });
 
   const formatPrice = (price) => {
     if (!price || isNaN(price)) return "₵0.00";
@@ -452,7 +449,7 @@ const LaptopDeals = () => {
         .ld-card-old-price {
           font-size: 12px;
           font-weight: 400;
-          color: var(--ld-light);
+          color: #4b5563; /* was #888 - 3.5:1 contrast, fails WCAG AA */
           text-decoration: line-through;
           margin-top: 2px;
         }
@@ -664,7 +661,7 @@ const LaptopDeals = () => {
             style={{ paddingBottom: 4, paddingLeft: 1, paddingRight: 1 }}
           >
             {(sortedProducts
-            ).map((product, index) => {
+            ).map((product) => {
               if (!product) return null;
 
               const {
@@ -712,8 +709,8 @@ const LaptopDeals = () => {
                       <img
                         src={getValidImageUrl(productImage)}
                         alt={productName}
-                        loading={sortedProducts.indexOf(product) < 4 ? "eager" : "lazy"}
-                        fetchPriority={sortedProducts.indexOf(product) === 0 ? "high" : "auto"}
+                        loading="lazy"
+                        fetchPriority="low"
                         decoding="async"
                         width={300}
                         height={300}

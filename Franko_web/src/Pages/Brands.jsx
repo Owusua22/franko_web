@@ -24,6 +24,8 @@ import { fetchBrands } from "../Redux/Slice/brandSlice";
 import { CircularPagination } from "../Component/CircularPagination";
 import useAddToCart from "../Component/Cart";
 
+import { PLACEHOLDER_IMAGE, PRODUCT_IMAGE_BASE, productImageUrl } from "../config/media";
+
 /* ============================ CONFIG ============================ */
 
 const PRODUCTS_PER_PAGE = 10;
@@ -51,15 +53,7 @@ const formatPrice = (price) => {
   })}`;
 };
 
-const getImageUrl = (path) => {
-  if (!path) return "https://via.placeholder.com/500";
-  if (path.includes("\\")) {
-    return `https://testing.frankotrading.com/Media/Products_Images/${path
-      .split("\\")
-      .pop()}`;
-  }
-  return path;
-};
+const getImageUrl = (path) => productImageUrl(path, { width: 300 });
 
 const getDiscount = (product) => {
   const price = Number(product.price) || 0;
@@ -216,7 +210,7 @@ const ProductCard = memo(function ProductCard({
           loading="lazy"
           onError={(e) => {
             e.target.onerror = null;
-            e.target.src = "https://via.placeholder.com/500";
+            e.target.src = PLACEHOLDER_IMAGE;
           }}
           className={`h-full w-full object-contain transition-transform duration-300 group-hover:scale-[1.03] ${
             soldOut ? "opacity-60" : ""

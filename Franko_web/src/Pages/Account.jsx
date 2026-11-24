@@ -32,7 +32,9 @@ import {
 } from "../Redux/Slice/customerSlice";
 import AuthModal from "../Component/AuthModal";
 
-const backendBaseURL = "https://testing.frankotrading.com";
+import { CMS_BASE_URL } from "../config/media";
+
+const backendBaseURL = CMS_BASE_URL;
 
 // ==================== CONFIRM DIALOG ====================
 const ConfirmDialog = ({

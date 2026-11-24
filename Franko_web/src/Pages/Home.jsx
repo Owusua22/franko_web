@@ -18,9 +18,11 @@ import Footer from '../Component/Footer';
 
 
 function Home() {
-  // Scroll to top when component mounts
+  // Scroll to top when component mounts. `auto` (not smooth) because a smooth
+  // scroll from the previous page's offset animates the whole layout and shows
+  // up as extra layout-shift / long animation frames on the home page.
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'auto' });
   }, []);
 
   useEffect(() => {
@@ -69,7 +71,6 @@ function Home() {
           name="twitter:image"
           content="https://www.frankotrading.com/frankoIcon.png"
         />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       </Helmet>
 
       <Carousel />

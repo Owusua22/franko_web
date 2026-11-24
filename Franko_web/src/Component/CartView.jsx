@@ -31,13 +31,15 @@ import { cartTotals } from "../utils/cartItems.mjs";
 import AuthModal from "./AuthModal";
 import useCustomer, { persistCustomer, getCustomerId } from "../hooks/useCustomer";
 
+import { CMS_BASE_URL } from "../config/media";
+
 /* ============================================================================
    CartView — the ONE cart page body, shared by Pages/Cart.jsx (standard,
    green, /cart/:cartId -> /checkout) and Pages/TelCart.jsx (Telecel Speed
    Shopping, red, /tel-cart -> /tel-checkout).
    ========================================================================== */
 
-const BACKEND_BASE_URL = "https://testing.frankotrading.com";
+const BACKEND_BASE_URL = CMS_BASE_URL;
 export const TEL_CHECKOUT_ROUTE = "/tel-checkout";
 
 const formatCurrency = (amount, decimals = 2) => {

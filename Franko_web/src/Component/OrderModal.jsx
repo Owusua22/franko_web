@@ -39,6 +39,8 @@ import {
   EyeOutlined,
 } from "@ant-design/icons";
 
+import { CMS_BASE_URL } from "../config/media";
+
 const { Title, Text } = Typography;
 
 // ==================== CONSTANTS ====================
@@ -416,7 +418,7 @@ const formatDateTime = (dateString) => {
     onCancelled?.();
   };
 
-  const backendBaseURL = "https://testing.frankotrading.com";
+  const backendBaseURL = CMS_BASE_URL;
   const handleImageError = (e) => {
     e.target.style.display = "none";
     if (e.target.nextSibling) e.target.nextSibling.style.display = "flex";

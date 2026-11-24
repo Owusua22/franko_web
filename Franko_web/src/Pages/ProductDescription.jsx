@@ -45,6 +45,8 @@ import {
   findProductById,
 } from "../utils/productSlug";
 
+import { PLACEHOLDER_IMAGE, PRODUCT_IMAGE_BASE } from "../config/media";
+
 // ==================== UTILITY FUNCTIONS ====================
 
 const formatPrice = (price) => {
@@ -57,12 +59,12 @@ const formatPrice = (price) => {
 
 const getValidImageUrl = (imagePath) => {
   if (!imagePath || typeof imagePath !== "string") {
-    return "https://via.placeholder.com/150";
+    return PLACEHOLDER_IMAGE;
   }
   if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
     return imagePath;
   }
-  const base = "https://testing.frankotrading.com/Media/Products_Images/";
+  const base = "${PRODUCT_IMAGE_BASE}";
   if (imagePath.includes("\\")) return base + imagePath.split("\\").pop();
   if (imagePath.includes("/")) return base + imagePath.split("/").pop();
   return base + imagePath;
@@ -285,7 +287,7 @@ const ProductDescription = () => {
     const uniqueUrls = [...new Set(resolvedUrls)];
     return uniqueUrls.length > 0
       ? uniqueUrls
-      : ["https://via.placeholder.com/150"];
+      : [PLACEHOLDER_IMAGE];
   }, [currentProduct]);
 
   // Reset selected image index when navigating to a new product
@@ -848,7 +850,7 @@ const ProductDescription = () => {
         alt="Product"
         className="w-full h-full object-cover rounded"
         onError={(e) => {
-          e.target.src = "https://via.placeholder.com/150";
+          e.target.src = PLACEHOLDER_IMAGE;
         }}
       />
     );
@@ -1747,7 +1749,7 @@ const ProductDescription = () => {
                 alt={product.productName}
                 className="pd-sticky-img"
                 onError={(e) => {
-                  e.target.src = "https://via.placeholder.com/150";
+                  e.target.src = PLACEHOLDER_IMAGE;
                 }}
               />
               <div className="pd-sticky-info">
@@ -1857,7 +1859,7 @@ const ProductDescription = () => {
                       decoding="async"
                       className="pd-main-image"
                       alt={`${product.productName} - View ${idx + 1}`}
-                      fallback="https://via.placeholder.com/400?text=No+Image"
+                      fallback={PLACEHOLDER_IMAGE}
                       style={{ maxWidth: "100%", borderRadius: "var(--pd-radius)" }}
                     />
                   </div>
@@ -1893,7 +1895,7 @@ const ProductDescription = () => {
                       src={imgSrc}
                       alt={`${product.productName} thumbnail ${index + 1}`}
                       onError={(e) => {
-                        e.target.src = "https://via.placeholder.com/150";
+                        e.target.src = PLACEHOLDER_IMAGE;
                       }}
                     />
                   </button>
@@ -2086,7 +2088,7 @@ const ProductDescription = () => {
                         <img
                           src={imgUrl}
                           alt={viewedProduct.name}
-                          onError={(e) => { e.target.src = "https://via.placeholder.com/150"; }}
+                          onError={(e) => { e.target.src = PLACEHOLDER_IMAGE; }}
                         />
                       </div>
                       <div className="pd-card-overlay" onClick={() => navigate(`/product/${viewedSlug}`)}>
@@ -2170,7 +2172,7 @@ const ProductDescription = () => {
                         <img
                           src={imgUrl}
                           alt={relatedProduct.productName}
-                          onError={(e) => { e.target.src = "https://via.placeholder.com/150"; }}
+                          onError={(e) => { e.target.src = PLACEHOLDER_IMAGE; }}
                         />
                       </div>
                       <div className="pd-card-overlay" onClick={() => navigate(`/product/${relatedSlug}`)}>

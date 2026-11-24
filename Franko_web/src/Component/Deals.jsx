@@ -24,6 +24,8 @@ import {
 import Tooltip from "@material-tailwind/react/components/Tooltip";
 import useAddToCart from "./Cart";
 
+import { PLACEHOLDER_IMAGE, PRODUCT_IMAGE_BASE, productImageUrl } from "../config/media";
+
 // ==================== NOTIFICATION ====================
 
 const Notification = ({ message, type, isVisible, onClose }) => {
@@ -219,12 +221,7 @@ const Deals = () => {
 
   // ==================== HELPERS ====================
 
-  const getValidImageUrl = (imagePath) => {
-    if (!imagePath) return "https://via.placeholder.com/150";
-    return imagePath.includes("\\")
-      ? `https://testing.frankotrading.com/Media/Products_Images/${imagePath.split("\\").pop()}`
-      : imagePath;
-  };
+  const getValidImageUrl = (imagePath) => productImageUrl(imagePath, { width: 300 });
 
   const formatPrice = (price) => {
     if (!price || isNaN(price)) return "₵0.00";
@@ -632,7 +629,8 @@ const Deals = () => {
         .deals-card-old-price {
           font-size: 12px;
           font-weight: 400;
-          color: var(--deals-light);
+          /* was var(--deals-light) = #888 -> 3.5:1 on white, fails WCAG AA */
+          color: #4b5563;
           text-decoration: line-through;
           margin-top: 2px;
         }
@@ -865,8 +863,10 @@ const Deals = () => {
         <div className="relative" style={{ marginTop: 16 }}>
           {showLeftArrow && (
             <button
+              type="button"
               onClick={() => scroll("left")}
               className="deals-scroll-btn deals-scroll-btn-left"
+              aria-label="Scroll deals left"
             >
               <ChevronLeftIcon style={{ width: 16, height: 16, color: "var(--deals-green)" }} />
             </button>
@@ -880,7 +880,7 @@ const Deals = () => {
             style={{ paddingBottom: 4, paddingLeft: 1, paddingRight: 1 }}
           >
             {(productsByShowroom?.[showroomID]
-            )?.map((product, productIndex) => {
+            )?.map((product) => {
               if (!product) return null;
 
               const {
@@ -921,8 +921,8 @@ const Deals = () => {
                       <img
                         src={getValidImageUrl(productImage)}
                         alt={productName}
-                        loading={productIndex < 4 ? "eager" : "lazy"}
-                        fetchPriority={productIndex === 0 ? "high" : "auto"}
+                        loading="lazy"
+                        fetchPriority="low"
                         decoding="async"
                         width={300}
                         height={300}
@@ -987,7 +987,11 @@ const Deals = () => {
               );
             })}
             {
-              <Link to={`/showroom/${showroomID}`} className="deals-view-all">
+              <Link
+                to={`/showroom/${showroomID}`}
+                className="deals-view-all"
+                aria-label={`View all deals from this showroom`}
+              >
                 <div className="deals-view-all-circle">
                   <ArrowRightIcon style={{ width: 20, height: 20, color: "var(--deals-green)", transition: "color 0.2s" }} />
                 </div>
@@ -998,8 +1002,10 @@ const Deals = () => {
 
           {showRightArrow && (
             <button
+              type="button"
               onClick={() => scroll("right")}
               className="deals-scroll-btn deals-scroll-btn-right"
+              aria-label="Scroll deals right"
             >
               <ChevronRightIcon style={{ width: 16, height: 16, color: "var(--deals-green)" }} />
             </button>

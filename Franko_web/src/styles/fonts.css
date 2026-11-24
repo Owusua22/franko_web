@@ -1,0 +1,62 @@
+/* ============================================================================
+   Self-hosted brand fonts
+   ----------------------------------------------------------------------------
+   These two variable fonts used to be requested from fonts.googleapis.com at
+   runtime (two render-blocking CSS requests, ~1.2 s of the critical path on
+   mobile). They are now served from our own origin, preloaded in index.html
+   and cached long-term, so text paints as soon as the CSS is parsed.
+
+   Files:  public/fonts/rubik-latin-var.woff2            (SIL OFL 1.1)
+           public/fonts/plus-jakarta-sans-latin-var.woff2 (SIL OFL 1.1)
+   Licences are kept next to the files in public/fonts/OFL-*.txt.
+
+   The family names are intentionally the same as the Google Fonts names
+   ('Rubik', 'Plus Jakarta Sans') so every existing `font-family` declaration
+   in the app keeps working unchanged.
+   ========================================================================== */
+
+@font-face {
+  font-family: "Rubik";
+  font-style: normal;
+  font-weight: 300 900;
+  font-display: swap;
+  src: url("/fonts/rubik-latin-var.woff2") format("woff2-variations"),
+       url("/fonts/rubik-latin-var.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("/fonts/plus-jakarta-sans-latin-var.woff2") format("woff2-variations"),
+       url("/fonts/plus-jakarta-sans-latin-var.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Metric-compatible fallbacks.
+   While the woff2 files download (or if they ever fail) the browser uses the
+   system UI font. These overrides shrink the visual jump between the fallback
+   and the real face, which is what causes "font swap" layout shift. */
+@font-face {
+  font-family: "Rubik Fallback";
+  src: local("Arial"), local("Helvetica Neue"), local("Liberation Sans");
+  size-adjust: 100%;
+  ascent-override: 94%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans Fallback";
+  src: local("Arial"), local("Helvetica Neue"), local("Liberation Sans");
+  size-adjust: 101%;
+  ascent-override: 96%;
+  descent-override: 25%;
+  line-gap-override: 0%;
+}

@@ -32,6 +32,8 @@ import {
   PrinterOutlined
 } from '@ant-design/icons';
 
+import { CMS_BASE_URL } from "../../../config/media";
+
 const { Title, Text, Paragraph } = Typography;
 
 const AgentOrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
@@ -546,7 +548,7 @@ const AgentOrderModal = ({ orderId, orderCode, isModalVisible, onClose }) => {
     }
   };
 
-  const backendBaseURL = 'https://testing.frankotrading.com';
+  const backendBaseURL = CMS_BASE_URL;
   const totalAmount = salesOrder.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   const totalItems = salesOrder.reduce((acc, item) => acc + item.quantity, 0);
 

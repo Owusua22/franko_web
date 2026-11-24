@@ -16,6 +16,8 @@ import {
 } from "../Redux/Slice/wishlistSlice";
 import { useState, useEffect } from "react";
 
+import { PLACEHOLDER_IMAGE, PRODUCT_IMAGE_BASE, productImageUrl } from "../config/media";
+
 // Custom Notification Component
 const Notification = ({ message, type, isVisible, onClose }) => {
   useEffect(() => {
@@ -59,12 +61,7 @@ const formatPrice = (price) =>
 
 
 // Image formatter
-const getValidImageUrl = (imagePath) => {
-  if (!imagePath) return "https://via.placeholder.com/150";
-  return imagePath.includes("\\")
-    ? `https://testing.frankotrading.com/Media/Products_Images/${imagePath.split("\\").pop()}`
-    : imagePath;
-};
+const getValidImageUrl = (imagePath) => productImageUrl(imagePath, { width: 300 });
 
 // Skeleton
 const SkeletonCard = () => (
@@ -78,7 +75,10 @@ const SkeletonCard = () => (
 const ProductCard = ({ currentProducts = [], navigate, loading = false }) => {
   const dispatch = useDispatch();
   const wishlist = useSelector((state) => state.wishlist.items);
-  const { addProductToCart, loading: cartLoading } = useAddToCart();
+  // `cartItems` MUST be destructured: the add-to-cart guard below reads it,
+  // and referencing it without declaring it threw a ReferenceError on every
+  // click (the "Add to cart" button silently did nothing).
+  const { addProductToCart, loading: cartLoading, cartItems } = useAddToCart();
 
   // Notification state
   const [notification, setNotification] = useState({
@@ -188,12 +188,16 @@ const ProductCard = ({ currentProducts = [], navigate, loading = false }) => {
                       <img
                         src={imageUrl}
                         alt={productName}
-                        loading={currentProducts.indexOf(product) === 0 ? "eager" : "lazy"}
-                        fetchPriority={currentProducts.indexOf(product) === 0 ? "high" : "auto"}
+                        loading="lazy"
+                        fetchPriority="low"
                         decoding="async"
                         width={300}
                         height={300}
                         className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = PLACEHOLDER_IMAGE;
+                        }}
                       />
                     </div>
 

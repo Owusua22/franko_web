@@ -1,11 +1,8 @@
 import PendingPlaceholder from "../PendingPlaceholder";
 import { appStorage as localStorage } from "../../utils/secureLocalStorageInit";
 import { getBrandUrl, getProductUrl } from "../../utils/productSlug";
-import { lazy, Suspense, useState, useEffect, useRef } from "react";
-import Drawer from "@material-tailwind/react/components/Drawer";
-import Dialog from "@material-tailwind/react/components/Dialog";
-import DialogHeader from "@material-tailwind/react/components/Dialog/DialogHeader";
-import DialogBody from "@material-tailwind/react/components/Dialog/DialogBody";
+import { lazy, Suspense, useState, useEffect, useRef, useCallback } from "react";
+import { SidePanel, Modal, OverlayStyles } from "./Overlays";
 import {
   ShoppingBagIcon,
   UserCircleIcon,
@@ -36,7 +33,7 @@ import { useDispatch, useSelector } from "react-redux";
 import debounce from "lodash/debounce";
 
 import AnnouncementBar from "./AnnouncentBar";
-import logo from "../../assets/frankoIcon.png";
+import logo from "../../assets/frankoIcon-128.webp";
 
 import { fetchCategories } from "../../Redux/Slice/categorySlice";
 import { fetchBrands } from "../../Redux/Slice/brandSlice";
@@ -169,8 +166,20 @@ const Nav = () => {
   useEffect(() => {
     dispatch(fetchCategories());
     dispatch(fetchBrands());
-    if (products.length === 0) dispatch(fetchProducts());
-  }, [dispatch, products.length]);
+    // NOTE: the full catalogue (`/Product/Product-Get`, ~1.4 MB of JSON) used
+    // to be fetched on every single page load just so the search box had
+    // something to filter. It is now requested at the moment the visitor shows
+    // intent to search (focus / first keystroke) - see `ensureProducts`.
+  }, [dispatch]);
+
+  // `products` may already hold a short page of products (New Arrivals asks
+  // for 10), so it cannot be used as "the catalogue is loaded" signal.
+  const catalogueRequested = useRef(false);
+  const ensureProducts = useCallback(() => {
+    if (catalogueRequested.current) return;
+    catalogueRequested.current = true;
+    dispatch(fetchProducts());
+  }, [dispatch]);
 
   /* ✅ Auth sync on mount — validates and cleans up */
   useEffect(() => {
@@ -234,6 +243,7 @@ const Nav = () => {
   useEffect(() => { setShowSearchResults(!!searchQuery.trim()); }, [searchQuery]);
 
   const handleSearchChange = (e) => {
+    ensureProducts();
     setInputValue(e.target.value);
     debounceRef.current(e.target.value);
   };
@@ -246,6 +256,7 @@ const Nav = () => {
   };
   const handleSearchSubmit = (e) => {
     e.preventDefault();
+    ensureProducts();
     if (inputValue.trim()) setShowSearchResults(true);
   };
 
@@ -345,7 +356,7 @@ const Nav = () => {
             return (
               <div key={product.productID} onClick={() => handleProductClick(product)} className="nr-item" style={mobile ? { padding: "7px 10px" } : undefined}>
                 {imgURL ? (
-                  <img src={imgURL} alt={product.productName} style={{ width: sz, height: sz, objectFit: "cover", borderRadius: 4, border: "1px solid #eee", background: "#f9f9f9" }} onError={(e) => (e.target.style.display = "none")} />
+                  <img src={imgURL} alt={product.productName} width={sz} height={sz} loading="lazy" decoding="async" style={{ width: sz, height: sz, objectFit: "cover", borderRadius: 4, border: "1px solid #eee", background: "#f9f9f9" }} onError={(e) => (e.target.style.display = "none")} />
                 ) : (
                   <div style={{ width: sz, height: sz, borderRadius: 4, background: "#f5f5f5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#ccc", flexShrink: 0 }}>—</div>
                 )}
@@ -502,13 +513,13 @@ const Nav = () => {
 
               {/* Mobile: Logo on LEFT */}
               <div className="nav-logo-container lg:hidden ml-2" onClick={() => navigate("/")}>
-                <img src={logo} alt="Franko Trading" style={{ height: 28, width: "auto" }} />
+                <img src={logo} alt="Franko Trading" width={40} height={28} style={{ height: 28, width: "auto" }} />
               </div>
 
               {/* Desktop */}
               <div className="hidden lg:flex items-center justify-between w-full" style={{ gap: 16 }}>
                 <div className="nav-logo-container" onClick={() => navigate("/")}>
-                  <img src={logo} alt="Franko Trading" style={{ height: 40, width: "auto" }} />
+                  <img src={logo} alt="Franko Trading" width={58} height={40} style={{ height: 40, width: "auto" }} />
                 </div>
 
                 {/* Search Section */}
@@ -546,8 +557,8 @@ const Nav = () => {
 
                     <div className="ns-wrap" ref={searchRef}>
                       <form onSubmit={handleSearchSubmit} className="ns" style={{ borderRadius: `0 var(--nav-radius) var(--nav-radius) 0`, borderLeft: "none" }}>
-                        <input type="text" value={inputValue} onChange={handleSearchChange} placeholder="Search products..." />
-                        <button type="submit" className="ns-btn"><MagnifyingGlassIcon style={{ width: 16, height: 16 }} /></button>
+                        <input type="search" value={inputValue} onChange={handleSearchChange} onFocus={ensureProducts} placeholder="Search products..." aria-label="Search products" />
+                        <button type="submit" className="ns-btn" aria-label="Search products"><MagnifyingGlassIcon aria-hidden="true" style={{ width: 16, height: 16 }} /></button>
                       </form>
                       {showSearchResults && <SearchResults />}
                     </div>
@@ -596,32 +607,32 @@ const Nav = () => {
                   )}
 
                   <div className="n-sep" />
-                  <div onClick={handleWishlistClick} className="ni" title="Wishlist">
+                  <button type="button" onClick={handleWishlistClick} className="ni" aria-label="Wishlist">
                     <Heart style={{ width: 18, height: 18, color: "var(--nav-pink)" }} />
                     {wishlistCount > 0 && <span className="ni-badge ni-badge-p">{wishlistCount > 99 ? "99+" : wishlistCount}</span>}
-                  </div>
-                  <div onClick={() => navigate(`/cart/${localStorage.getItem("cartId")}`)} className="ni" title="Cart">
+                  </button>
+                  <button type="button" onClick={() => navigate(`/cart/${localStorage.getItem("cartId")}`)} className="ni" aria-label="Shopping cart">
                     <ShoppingBagIcon style={{ width: 18, height: 18, color: "var(--nav-mid)" }} />
                     {totalItems > 0 && <span className="ni-badge ni-badge-g">{totalItems > 99 ? "99+" : totalItems}</span>}
-                  </div>
+                  </button>
                 </div>
               </div>
 
               {/* Mobile: Right side */}
               <div className="lg:hidden flex items-center" style={{ gap: 2 }}>
-                <div onClick={openMobileSearch} className="ni">
+                <button type="button" onClick={openMobileSearch} className="ni" aria-label="Search products">
                   <MagnifyingGlassIcon style={{ width: 18, height: 18, color: "var(--nav-mid)" }} />
-                </div>
+                </button>
 
                 {/* ✅ Mobile avatar — auth-gated */}
                 <div className="relative" ref={mobileProfileDropdownRef}>
-                  <div onClick={handleMobileAccountClick} className="ni">
+                  <button type="button" onClick={handleMobileAccountClick} className="ni" aria-label="Your account">
                     {showUser ? (
                       <div className="n-avatar n-avatar-sm">{currentCustomer.firstName?.[0]?.toUpperCase() || "U"}</div>
                     ) : (
                       <User style={{ width: 18, height: 18, color: "var(--nav-mid)" }} />
                     )}
-                  </div>
+                  </button>
                   {showMobileProfileDropdown && showUser && (
                     <div className="n-profile-drop" style={{ right: 0, minWidth: 200 }}>
                       <div className="n-profile-header">
@@ -645,12 +656,12 @@ const Nav = () => {
                   )}
                 </div>
 
-                <div onClick={() => navigate(`/cart/${localStorage.getItem("cartId")}`)} className="ni">
+                <button type="button" onClick={() => navigate(`/cart/${localStorage.getItem("cartId")}`)} className="ni" aria-label="Shopping cart">
                   <ShoppingBagIcon style={{ width: 18, height: 18, color: "var(--nav-mid)" }} />
                   {totalItems > 0 && <span className="ni-badge ni-badge-g" style={{ fontSize: 9, minWidth: 14, height: 14 }}>{totalItems > 99 ? "99+" : totalItems}</span>}
-                </div>
+                </button>
 
-                <button onClick={toggleDrawer} className="n-ham ml-4 mr-1">
+                <button onClick={toggleDrawer} className="n-ham ml-4 mr-1" aria-label="Open menu" aria-expanded={openDrawer}>
                   <Menu style={{ width: 18, height: 18, color: "var(--nav-mid)" }} />
                 </button>
               </div>
@@ -681,12 +692,12 @@ const Nav = () => {
           <div className="ms-backdrop" onClick={closeMobileSearch} />
           <div className="ms-panel">
             <div className="ms-header">
-              <button onClick={closeMobileSearch} className="ms-back"><ArrowLeftIcon style={{ width: 18, height: 18, color: "var(--nav-mid)" }} /></button>
+              <button onClick={closeMobileSearch} className="ms-back" aria-label="Close search"><ArrowLeftIcon style={{ width: 18, height: 18, color: "var(--nav-mid)" }} /></button>
               <div className="ms-input-wrap">
                 <MagnifyingGlassIcon style={{ width: 16, height: 16, color: "var(--nav-light)", flexShrink: 0 }} />
-                <input ref={mobileSearchInputRef} type="text" value={inputValue} onChange={handleSearchChange} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (inputValue.trim()) setShowSearchResults(true); } }} placeholder="Search products..." autoComplete="off" />
+                <input ref={mobileSearchInputRef} type="search" value={inputValue} onChange={handleSearchChange} onFocus={ensureProducts} aria-label="Search products" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (inputValue.trim()) setShowSearchResults(true); } }} placeholder="Search products..." autoComplete="off" />
                 {inputValue && (
-                  <button className="ms-clear" onClick={() => { setInputValue(""); setSearchQuery(""); setShowSearchResults(false); mobileSearchInputRef.current?.focus(); }}>
+                  <button className="ms-clear" aria-label="Clear search" onClick={() => { setInputValue(""); setSearchQuery(""); setShowSearchResults(false); mobileSearchInputRef.current?.focus(); }}>
                     <XMarkIcon style={{ width: 12, height: 12, color: "#666" }} />
                   </button>
                 )}
@@ -707,12 +718,14 @@ const Nav = () => {
         </div>
       )}
 
-      {/* Drawer */}
-      <Drawer open={openDrawer} onClose={toggleDrawer} placement="right" className="p-0 drawer-classic" style={{ fontFamily: "var(--nav-font)", maxWidth: 290 }}>
+      <OverlayStyles />
+
+      {/* Mobile menu */}
+      <SidePanel open={openDrawer} onClose={toggleDrawer} label="Main menu" className="drawer-classic" style={{ fontFamily: "var(--nav-font)" }}>
         <div style={{ height: "100%", display: "flex", flexDirection: "column", background: "#fff" }}>
           <div className="d-head">
-            <span onClick={() => closeDrawerAndNavigate("/")} style={{ cursor: "pointer" }}><img src={logo} alt="Franko" style={{ height: 24 }} /></span>
-            <button onClick={toggleDrawer} className="d-close"><XMarkIcon style={{ width: 14, height: 14, color: "#888" }} /></button>
+            <span onClick={() => closeDrawerAndNavigate("/")} style={{ cursor: "pointer" }}><img src={logo} alt="Franko" width={35} height={24} style={{ height: 24, width: "auto" }} /></span>
+            <button onClick={toggleDrawer} className="d-close" aria-label="Close menu"><XMarkIcon style={{ width: 14, height: 14, color: "#888" }} /></button>
           </div>
           <div className="d-tabs">
             <button onClick={() => setActiveSidebar("categories")} className={`d-tab ${activeSidebar === "categories" ? "d-tab-on" : ""}`}>Categories</button>
@@ -822,23 +835,23 @@ const Nav = () => {
             )}
           </div>
         </div>
-      </Drawer>
+      </SidePanel>
 
       {/* Radio Dialog */}
-      <Dialog open={isRadioOpen} handler={toggleRadio} size="sm">
-        <DialogHeader style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: "var(--nav-font)", fontSize: 15, fontWeight: 700, color: "#333", padding: "14px 18px", borderBottom: "1px solid #eee" }}>
+      <Modal open={isRadioOpen} onClose={toggleRadio} label="Franko Radio Live">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: "var(--nav-font)", fontSize: 15, fontWeight: 700, color: "#333", padding: "14px 18px", borderBottom: "1px solid #eee" }}>
           Franko Radio Live 🎙️
-          <button onClick={toggleRadio} className="d-close"><XMarkIcon style={{ width: 14, height: 14, color: "#888" }} /></button>
-        </DialogHeader>
-        <DialogBody style={{ padding: 20 }}>
+          <button onClick={toggleRadio} className="d-close" aria-label="Close radio player"><XMarkIcon style={{ width: 14, height: 14, color: "#888" }} /></button>
+        </div>
+        <div style={{ padding: 20 }}>
           <div className="flex flex-col items-center gap-4">
             <audio controls autoPlay className="w-full" style={{ borderRadius: 6 }}>
               <source src="https://s48.myradiostream.com/:13420/listen.mp3" type="audio/mpeg" />
             </audio>
             <p style={{ fontFamily: "var(--nav-font)", fontSize: 13, color: "#999", textAlign: "center" }}>Streaming live</p>
           </div>
-        </DialogBody>
-      </Dialog>
+        </div>
+      </Modal>
     </>
   );
 };

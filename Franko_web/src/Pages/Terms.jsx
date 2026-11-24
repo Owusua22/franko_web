@@ -12,7 +12,7 @@ import {
   ArrowRight,
   Mail,
 } from "lucide-react";
-import logo from "../assets/frankoIcon.png";
+import logo from "../assets/frankoIcon-128.webp";
 import { useNavigate } from "react-router-dom";
 
 function Terms() {

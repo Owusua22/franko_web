@@ -6,9 +6,13 @@ import { Splide, SplideSlide } from "@splidejs/react-splide";
 import "@splidejs/react-splide/css";
 
 import { getBannerPageAdvertisment } from "../Redux/Slice/advertismentSlice";
-import ban from "../assets/banner.jpg";
+import { adImageUrl } from "../config/media";
+import ban from "../assets/banner.webp";
+import banSmall from "../assets/banner-800.webp";
 
-const backendBaseURL = "https://testing.frankotrading.com";
+/** Intrinsic size of every hero ad (the CMS exports them at 1600x645). */
+const BANNER_WIDTH = 1600;
+const BANNER_HEIGHT = 645;
 
 export default function Carousel() {
   const dispatch = useDispatch();
@@ -22,6 +26,40 @@ export default function Carousel() {
     return Array.isArray(rows) ? rows.slice(1) : [];
   });
   const [heightRatio, setHeightRatio] = useState(0.0);
+
+  /* One carousel, not two.
+     The component used to mount a desktop Splide AND a mobile Splide at the
+     same time (one of them merely `display:none`): two autoplay timers, two
+     sets of slides, two LCP candidates and duplicate ids in the accessibility
+     tree. We now pick the layout with a media query and render a single
+     carousel, re-mounting it when the breakpoint changes. */
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches
+  );
+
+  /* Autoplaying a fade carousel every 2.5 s on mobile kept re-laying-out the
+     hero (Lighthouse: "Avoid non-composited animations", plus avoidable CLS
+     whenever a slide swapped while text was being read). Visitors who ask for
+     reduced motion get a static hero, and everyone else a calmer 5 s/6 s cycle
+     that still rotates. */
+  const [reduceMotion, setReduceMotion] = useState(
+    () => typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+
+  useEffect(() => {
+    const mql = window.matchMedia("(max-width: 767px)");
+    const onChange = (event) => setIsMobile(event.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
+    const mql = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const onChange = (event) => setReduceMotion(event.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
 
   useEffect(() => {
     const img = new Image();
@@ -69,13 +107,38 @@ export default function Carousel() {
     if (autoplay && autoplay.isPaused()) autoplay.play();
   };
 
-  const renderSplide = (isMobile) => {
+  /**
+   * Splide gives every slide `role="tabpanel"`, which is not a role an <li>
+   * may carry (axe: "uses ARIA roles only on compatible elements", also
+   * reported under Agentic Browsing as an ill-formed accessibility tree).
+   * `role="group"` is what the ARIA carousel pattern asks for.
+   */
+  const fixSlideRoles = () => {
+    try {
+      const splide = splideRef.current?.splide;
+      const slides = splide?.Components?.Elements?.slides;
+      const nodes = slides?.length
+        ? Array.from(slides)
+        : Array.from(document.querySelectorAll(".carousel-container .splide__slide"));
+      nodes.forEach((slide) => slide.setAttribute("role", "group"));
+    } catch {
+      /* never let an a11y patch break the carousel */
+    }
+  };
+
+  const renderSplide = () => {
     if (!heightRatio) {
       return (
         <img
           src={ban}
+          srcSet={`${banSmall} 800w, ${ban} 1600w`}
+          sizes="(max-width: 767px) 100vw, 1200px"
           alt="Franko Trading"
-          className="w-full h-full object-cover rounded-lg"
+          width={BANNER_WIDTH}
+          height={BANNER_HEIGHT}
+          fetchPriority="high"
+          decoding="async"
+          className="w-full h-auto object-cover rounded-lg"
         />
       );
     }
@@ -85,8 +148,8 @@ export default function Carousel() {
       rewind: true,
       arrows: false,
       pagination: true,
-      autoplay: true,
-      interval: isMobile ? 2500 : 4500,
+      autoplay: !reduceMotion,
+      interval: isMobile ? 5000 : 6000,
       speed: 800,
       pauseOnHover: true,
       pauseOnFocus: true,
@@ -150,13 +213,19 @@ export default function Carousel() {
         <Splide
           ref={splideRef}
           options={options}
-          onMounted={() => startAutoplay()}
+          onMounted={() => {
+            startAutoplay();
+            fixSlideRoles();
+          }}
+          onUpdated={fixSlideRoles}
           onMove={() => startAutoplay()}
         >
           {/* Fetched Ads Only */}
           {filteredAds.map((ad, index) => {
-            const file = String(ad?.fileName || "").split("\\").pop();
-            const imageUrl = `${backendBaseURL}/Media/Ads/${file}`;
+            const imageUrl = adImageUrl(ad?.fileName, {
+              width: isMobile ? 800 : 1600,
+              fallback: ban,
+            });
 
             return (
               <SplideSlide key={ad?.id ?? index} className="banner-slide">
@@ -166,12 +235,20 @@ export default function Carousel() {
                 >
                   <img
                     src={imageUrl}
+                    /* Only the first slide is the LCP candidate. The remaining
+                       hero ads were all `eager` before, so they competed with
+                       the banner that is actually painted first. */
                     loading={index === 0 ? "eager" : "lazy"}
-                    fetchPriority={index === 0 ? "high" : "auto"}
+                    fetchPriority={index === 0 ? "high" : "low"}
                     decoding="async"
-                    alt="Franko Trading"
+                    width={BANNER_WIDTH}
+                    height={BANNER_HEIGHT}
+                    alt={ad?.altText || "Franko Trading promotion"}
                     className="banner-media shadow-lg"
-                    onError={(e) => (e.currentTarget.src = ban)}
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = ban;
+                    }}
                   />
 
                   {ad?.adsNote && (
@@ -198,22 +275,22 @@ export default function Carousel() {
 
   return (
     <div className="mx-auto p-1 md:p-2 carousel-container">
-      <div className="flex flex-col md:flex-row relative bg-gray-30">
-        {/* Desktop */}
-        <div className="hidden md:block w-full">
+      <div className="relative bg-gray-30">
+        <div className="w-full">
           {loading ? (
-            <img src={ban} alt="Franko Trading" className="w-full h-full object-cover rounded-lg" />
+            <img
+              src={ban}
+              srcSet={`${banSmall} 800w, ${ban} 1600w`}
+              sizes="(max-width: 767px) 100vw, 1200px"
+              alt="Franko Trading"
+              width={BANNER_WIDTH}
+              height={BANNER_HEIGHT}
+              fetchPriority="high"
+              decoding="async"
+              className="w-full h-auto object-cover rounded-lg"
+            />
           ) : (
-            renderSplide(false)
-          )}
-        </div>
-
-        {/* Mobile */}
-        <div className="md:hidden w-full relative">
-          {loading ? (
-            <img src={ban} alt="Franko Trading" className="w-full h-full object-cover rounded-lg" />
-          ) : (
-            renderSplide(true)
+            <div key={isMobile ? "mobile" : "desktop"}>{renderSplide()}</div>
           )}
         </div>
       </div>

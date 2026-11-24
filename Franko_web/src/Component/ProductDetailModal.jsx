@@ -17,6 +17,8 @@ import { Helmet } from "react-helmet";
 import useAddToCart from "../Component/Cart";
 import AuthModal from "../Component/AuthModal";
 
+import { PLACEHOLDER_IMAGE, PRODUCT_IMAGE_BASE } from "../config/media";
+
 const formatPrice = (price) =>
   price?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
@@ -158,7 +160,7 @@ const ProductDetailModal = ({ productID, isModalVisible, onClose }) => {
   }
 
   const imagePath = product.productImage || product.imagePath || product.ImagePath || product.ProductImage;
-  const imageUrl = `https://testing.frankotrading.com/Media/Products_Images/${imagePath?.split("\\").pop()}`;
+  const imageUrl = `${PRODUCT_IMAGE_BASE}${imagePath?.split("\\").pop()}`;
   const hasDiscount = product.oldPrice > 0 && product.oldPrice > product.price;
   const discountPercent = hasDiscount
     ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
@@ -236,7 +238,7 @@ const ProductDetailModal = ({ productID, isModalVisible, onClose }) => {
                   className="pdm-product-image"
                   onError={(e) => {
                     e.target.onerror = null;
-                    e.target.src = "https://via.placeholder.com/400";
+                    e.target.src = PLACEHOLDER_IMAGE;
                   }}
                 />
               </div>

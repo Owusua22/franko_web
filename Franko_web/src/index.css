@@ -1,4 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap');
+/* Self-hosted fonts (Rubik + Plus Jakarta Sans) live in ./styles/fonts.css.
+   Imported FIRST so the @font-face rules are part of the same critical CSS
+   file instead of a second render-blocking request to fonts.googleapis.com. */
+@import "./styles/fonts.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,8 +12,10 @@
 @layer base {
   html,
   body {
-   font-family: 'Rubik', sans-serif;
-}
+    font-family: "Rubik", "Rubik Fallback", system-ui, -apple-system,
+      "Segoe UI", sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
 }
 
 /* Hide scrollbar in all browsers */
@@ -23,36 +29,107 @@
 
 /* Prevent horizontal scrolling and make app sticky on mobile */
 @layer base {
-  html, body {
-
- 
+  html,
+  body {
     width: 100%; /* Ensure full width */
-    height: 100%; /* Ensure full height */
+    min-height: 100%; /* Ensure full height */
     margin: 0;
     padding: 0;
   }
-  
+
   /* Main app container */
-  #root, .app-container {
-    width: 100vw;
-    height: 100vh;
-
-    overflow-y: auto; /* Allow vertical scrolling if needed */
-
-    top: 0;
-    left: 0;
+  #root,
+  .app-container {
+    width: 100%;
+    min-height: 100%;
+    overflow-x: hidden;
   }
 }
 
-/* Alternative approach using utility classes */
 @layer utilities {
   .mobile-fixed {
     @apply fixed inset-0 w-screen h-screen overflow-x-hidden overflow-y-auto;
-
   }
   .mobile-scroll {
     @apply overflow-y-auto;
   }
-  
- 
+}
+
+/* ============================================================================
+   Shared layout-stability + a11y helpers
+   ========================================================================== */
+
+/* Every content image keeps an intrinsic aspect ratio so the browser can
+   reserve its box before the bytes arrive (fixes "image elements do not have
+   explicit width and height" / cumulative layout shift). */
+img {
+  max-width: 100%;
+}
+
+/* Media box used by product cards / banners: always reserves space, whatever
+   the image that finally arrives looks like. */
+.media-frame {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background-color: #f7f7f7;
+}
+
+.media-frame > img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+/* Skip link: first tab stop on every page, revealed only on focus. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100000;
+  padding: 10px 16px;
+  background: #14532d;
+  color: #fff;
+  font-weight: 600;
+  border-radius: 0 0 6px 0;
+  text-decoration: none;
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  left: 0;
+  outline: 3px solid #22c55e;
+  outline-offset: 2px;
+}
+
+/* Screen-reader-only text for icon-only controls. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Deferred (below-the-fold) sections: skip layout/paint work until they are
+   close to the viewport, while still reserving their space. */
+.deferred-section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 520px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

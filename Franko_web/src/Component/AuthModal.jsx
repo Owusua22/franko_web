@@ -9,7 +9,7 @@ import {
   getCustomerById,
 } from "../Redux/Slice/customerSlice";
 import { v4 as uuidv4 } from "uuid";
-import logo from "../assets/frankoIcon.png";
+import logo from "../assets/frankoIcon-128.webp";
 import {
   XMarkIcon,
   UserIcon,

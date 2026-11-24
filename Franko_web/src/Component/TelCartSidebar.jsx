@@ -36,6 +36,8 @@ import AuthModal from "./AuthModal";
 import telecelWhite from "../assets/Telecel White.png";
 import speedLogo from "../assets/speed-logo.png";
 
+import { CMS_BASE_URL } from "../config/media";
+
 /* ============================================================================
    Telecel cart drawer. It renders the SAME Redux cart as the cart pages
    (state.cart via cartSlice) — every product line, keyed by productId.
@@ -49,7 +51,7 @@ import speedLogo from "../assets/speed-logo.png";
    ========================================================================== */
 
 const TEL_CHECKOUT_ROUTE = "/tel-checkout";
-const BACKEND_BASE_URL = "https://testing.frankotrading.com";
+const BACKEND_BASE_URL = CMS_BASE_URL;
 
 const formatCurrency = (amount, decimals = 2) => {
   const number = parseFloat(amount) || 0;

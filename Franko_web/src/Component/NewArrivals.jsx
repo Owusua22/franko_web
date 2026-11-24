@@ -5,7 +5,7 @@ import {
   addToWishlist,
   removeFromWishlist,
 } from "../Redux/Slice/wishlistSlice";
-import { fetchProducts } from "../Redux/Slice/productSlice";
+import { fetchPaginatedProducts } from "../Redux/Slice/productSlice";
 import Tooltip from "@material-tailwind/react/components/Tooltip";
 import {
   HeartIcon as OutlineHeartIcon,
@@ -18,6 +18,8 @@ import {
 } from "@heroicons/react/24/solid";
 import useAddToCart from "./Cart";
 import { useNavigate, Link } from "react-router-dom";
+
+import { PLACEHOLDER_IMAGE, PRODUCT_IMAGE_BASE, productImageUrl } from "../config/media";
 
 // ==================== NOTIFICATION ====================
 
@@ -86,7 +88,9 @@ const NewArrivals = () => {
   const navigate = useNavigate();
   const { products } = useSelector((state) => state.products);
   const wishlist = useSelector((state) => state.wishlist.items || []);
-  const { addProductToCart, loading: cartLoading } = useAddToCart();
+  // `cartItems` is read by the duplicate-add guard below - it has to be
+  // destructured or the add-to-cart handler throws a ReferenceError.
+  const { addProductToCart, loading: cartLoading, cartItems } = useAddToCart();
 
   const [notification, setNotification] = useState({
     message: "",
@@ -95,7 +99,10 @@ const NewArrivals = () => {
   });
 
   useEffect(() => {
-    dispatch(fetchProducts());
+    // Only the 10 newest products are shown here, so ask the paginated
+    // endpoint for exactly that. `/Product/Product-Get` returned the whole
+    // catalogue (1.4 MB of JSON, ~30x what this rail renders).
+    dispatch(fetchPaginatedProducts({ pageNumber: 1, pageSize: 10 }));
   }, [dispatch]);
 
   // Get the 10 most recent products based on creation date
@@ -161,12 +168,7 @@ const NewArrivals = () => {
 
   // ==================== HELPERS ====================
 
-  const getValidImageUrl = (imagePath) => {
-    if (!imagePath) return "https://via.placeholder.com/150";
-    return imagePath.includes("\\")
-      ? `https://testing.frankotrading.com/Media/Products_Images/${imagePath.split("\\").pop()}`
-      : imagePath;
-  };
+  const getValidImageUrl = (imagePath) => productImageUrl(imagePath, { width: 300 });
 
   const formatPrice = (price) => {
     if (!price || isNaN(price)) return "₵0.00";
@@ -437,7 +439,7 @@ const NewArrivals = () => {
         .na-card-old-price {
           font-size: 12px;
           font-weight: 400;
-          color: var(--na-light);
+          color: #4b5563; /* was #888 - 3.5:1 contrast, fails WCAG AA */
           text-decoration: line-through;
           margin-top: 2px;
         }
@@ -538,7 +540,7 @@ const NewArrivals = () => {
         {/* ==================== GRID ==================== */}
         <div className="na-grid">
           {(recentProducts).map(
-            (product, index) => {
+            (product) => {
               if (!product) return null;
 
               const {
@@ -578,14 +580,14 @@ const NewArrivals = () => {
                       <img
                         src={getValidImageUrl(productImage)}
                         alt={productName}
-                        loading={recentProducts.indexOf(product) < 4 ? "eager" : "lazy"}
-                        fetchPriority={recentProducts.indexOf(product) === 0 ? "high" : "auto"}
+                        loading="lazy"
+                        fetchPriority="low"
                         decoding="async"
                         width={300}
                         height={300}
                         onError={(e) => {
                           e.target.onerror = null;
-                          e.target.src = "https://via.placeholder.com/150";
+                          e.target.src = PLACEHOLDER_IMAGE;
                         }}
                       />
                     </div>

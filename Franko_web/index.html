@@ -14,10 +14,15 @@
     <!-- Favicon and Icons -->
     <link rel="icon" href="/frankoIcon.png" type="image/png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/frankoIcon.png" />
-   <link
-  href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
-  rel="stylesheet"
->
+    <!-- Self-hosted brand fonts: no third-party, render-blocking CSS request.
+         (Rubik is also declared in src/styles/fonts.css - see that file.) -->
+    <link
+      rel="preload"
+      href="/fonts/rubik-latin-var.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
 
     <!-- SEO Meta Tags -->
     <meta name="description" content="Shop premium quality phones, laptops, refrigerators, TVs, air conditioners and electronic products at Franko Trading Enterprise Ghana. Best prices, genuine products, fast delivery across Accra and nationwide. Your trusted electronics store since inception." />
@@ -67,44 +72,183 @@
     <link rel="manifest" href="/manifest.json" />
 
     <!-- Fonts and Analytics -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preconnect" href="https://www.google-analytics.com" />
+    <!-- The CMS media host serves the hero banner and every product photo, so
+         opening the connection early removes a full round-trip from the LCP
+         image. The API host is only DNS-prefetched because the JSON calls are
+         made by JavaScript after the shell has painted. -->
+    <link rel="preconnect" href="https://testing.frankotrading.com" crossorigin />
+    <link rel="dns-prefetch" href="https://testing.frankotrading.com" />
+    <link rel="dns-prefetch" href="https://02yo3gbfxe.execute-api.us-east-1.amazonaws.com" />
+    <link rel="preconnect" href="https://www.googletagmanager.com" />
+    <link rel="preconnect" href="https://connect.facebook.net" />
+    <link rel="dns-prefetch" href="https://analytics.tiktok.com" />
+    <link rel="dns-prefetch" href="https://embed.tawk.to" />
 
-    <!-- Google Tag Manager -->
+    <!-- ====================================================================
+         DEFERRED THIRD-PARTY LOADER
+         --------------------------------------------------------------------
+         GTM, the two Meta pixels and the TikTok pixel used to be injected
+         while the hero image was still downloading. On a Moto G Power that
+         cost ~1.7 s of script evaluation, a 741 ms long task and ~900 KiB of
+         unused JavaScript *before* the largest contentful paint.
+
+         The queueing stubs are still created synchronously (so no analytics
+         event is ever lost - every call is buffered exactly like the vendor
+         snippets do), but the vendor files themselves are now requested after
+         the page has loaded, or immediately on the first interaction.
+         ==================================================================== -->
     <script>
-      (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-      new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-      j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-      'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-      })(window,document,'script','dataLayer','GTM-WKCL4JTV');
+      (function () {
+        window.dataLayer = window.dataLayer || [];
+
+        var queue = [];
+        var flushed = false;
+
+        function flush() {
+          if (flushed) return;
+          flushed = true;
+          window.__frankoThirdPartyLoaded = true;
+          while (queue.length) {
+            var task = queue.shift();
+            try {
+              task();
+            } catch (error) {
+              /* a failing vendor must never break the storefront */
+            }
+          }
+          loadTawk();
+        }
+
+        window.__loadThirdParty = function (task) {
+          if (typeof task !== "function") return;
+          if (flushed) {
+            try {
+              task();
+            } catch (error) {
+              /* ignore */
+            }
+            return;
+          }
+          queue.push(task);
+        };
+
+        // 1. First interaction -> load immediately (consent/intent is there).
+        ["pointerdown", "keydown", "touchstart", "scroll"].forEach(function (event) {
+          window.addEventListener(event, flush, { once: true, passive: true });
+        });
+
+        // 2. No interaction -> load shortly after the load event, never before.
+        window.addEventListener("load", function () {
+          setTimeout(flush, 1500);
+        });
+
+        // Safety net for browsers that never fire `load` (e.g. a stalled ad).
+        setTimeout(flush, 8000);
+
+        // Tawk.to live chat is only needed once we are idle as well.
+        function loadTawk() {
+          if (window.__frankoTawkLoading) return;
+          window.__frankoTawkLoading = true;
+
+          var Tawk_API = (window.Tawk_API = window.Tawk_API || {});
+          window.Tawk_LoadStart = new Date();
+          Tawk_API.onLoad = function () {
+            try {
+              Tawk_API.hideWidget();
+            } catch (error) {
+              /* ignore */
+            }
+          };
+
+          var script = document.createElement("script");
+          script.async = true;
+          script.src = "https://embed.tawk.to/65fbeb32a0c6737bd12330fe/1hpg0thej";
+          script.charset = "UTF-8";
+          // NOTE: no `crossorigin` attribute. Asking for CORS on a script the
+          // vendor does not serve with Access-Control-Allow-Origin made the
+          // browser block it outright ("blocked by CORS policy"), which broke
+          // the live-chat button and logged a console error.
+          document.body.appendChild(script);
+        }
+      })();
     </script>
 
-    <!-- Facebook Pixel -->
+    <!-- Google Tag Manager (queued, injected by the loader above) -->
     <script>
-      !function(f,b,e,v,n,t,s)
-      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-      n.queue=[];t=b.createElement(e);t.async=true;
-      t.src=v;s=b.getElementsByTagName(e)[0];
-      s.parentNode.insertBefore(t,s)}(window,document,'script',
-      'https://connect.facebook.net/en_US/fbevents.js');
-      fbq('init', '4054827501430067');
-      fbq('init', '1039651225691142');
-      fbq('track', 'PageView');
+      window.dataLayer.push({ "gtm.start": new Date().getTime(), event: "gtm.js" });
+      window.__loadThirdParty(function () {
+        var script = document.createElement("script");
+        script.async = true;
+        script.src = "https://www.googletagmanager.com/gtm.js?id=GTM-WKCL4JTV";
+        document.head.appendChild(script);
+      });
     </script>
 
-    <!-- TikTok Pixel Code -->
+    <!-- Meta Pixel (queued) -->
     <script>
-      !function (w, d, t) {
-        w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(
-      var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js",o=n&&n.partner;ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};n=document.createElement("script")
-      ;n.type="text/javascript",n.async=!0,n.src=r+"?sdkid="+e+"&lib="+t;e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(n,e)};
+      !(function (f, b, e, v, n, t, s) {
+        if (f.fbq) return;
+        n = f.fbq = function () {
+          n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
+        };
+        if (!f._fbq) f._fbq = n;
+        n.push = n;
+        n.loaded = !0;
+        n.version = "2.0";
+        n.queue = [];
+        f.__loadThirdParty(function () {
+          t = b.createElement(e);
+          t.async = !0;
+          t.src = v;
+          s = b.getElementsByTagName(e)[0];
+          s.parentNode.insertBefore(t, s);
+        });
+      })(window, document, "script", "https://connect.facebook.net/en_US/fbevents.js");
 
-        ttq.load('D6PVD63C77U2LASTSH20');
+      fbq("init", "4054827501430067");
+      fbq("init", "1039651225691142");
+      fbq("track", "PageView");
+    </script>
+
+    <!-- TikTok Pixel (queued) -->
+    <script>
+      (function (w, d, t) {
+        w.TiktokAnalyticsObject = t;
+        var ttq = (w[t] = w[t] || []);
+        ttq.methods = ["page", "track", "identify", "instances", "debug", "on", "off", "once", "ready", "alias", "group", "enableCookie", "disableCookie", "holdConsent", "revokeConsent", "grantConsent"];
+        ttq.setAndDefer = function (obj, method) {
+          obj[method] = function () {
+            obj.push([method].concat(Array.prototype.slice.call(arguments, 0)));
+          };
+        };
+        for (var i = 0; i < ttq.methods.length; i++) ttq.setAndDefer(ttq, ttq.methods[i]);
+        ttq.instance = function (id) {
+          var instance = ttq._i[id] || [];
+          for (var j = 0; j < ttq.methods.length; j++) ttq.setAndDefer(instance, ttq.methods[j]);
+          return instance;
+        };
+        ttq.load = function (id, options) {
+          var url = "https://analytics.tiktok.com/i18n/pixel/events.js";
+          ttq._i = ttq._i || {};
+          ttq._i[id] = [];
+          ttq._i[id]._u = url;
+          ttq._t = ttq._t || {};
+          ttq._t[id] = +new Date();
+          ttq._o = ttq._o || {};
+          ttq._o[id] = options || {};
+          ttq.page();
+          w.__loadThirdParty(function () {
+            var script = d.createElement("script");
+            script.type = "text/javascript";
+            script.async = true;
+            script.src = url + "?sdkid=" + id + "&lib=" + t;
+            var first = d.getElementsByTagName("script")[0];
+            first.parentNode.insertBefore(script, first);
+          });
+        };
+        ttq.load("D6PVD63C77U2LASTSH20");
         ttq.page();
-      }(window, document, 'ttq');
+      })(window, document, "ttq");
     </script>
 
     <!-- Chat Widget Styles -->
@@ -498,24 +642,10 @@
       }
     </script>
 
-    <!-- Tawk.to Live Chat -->
-    <script type="text/javascript">
-      var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();
-      (function () {
-        var s1 = document.createElement("script"),
-            s0 = document.getElementsByTagName("script")[0];
-        s1.async = true;
-        s1.src = "https://embed.tawk.to/65fbeb32a0c6737bd12330fe/1hpg0thej";
-        s1.charset = "UTF-8";
-        s1.setAttribute("crossorigin", "*");
-        s0.parentNode.insertBefore(s1, s0);
-      })();
-
-      // Hide Tawk.to widget on load
-      Tawk_API.onLoad = function() {
-        Tawk_API.hideWidget();
-      };
-    </script>
+    <!-- Tawk.to Live Chat is injected by the deferred third-party loader in
+         <head> (see `loadTawk`). The previous inline copy requested the script
+         with `crossorigin="*"`, which the vendor does not honour: the request
+         failed and blocked the live-chat button. -->
 
     <!-- Vite Entry Script -->
     <script type="module" src="/src/main.jsx"></script>

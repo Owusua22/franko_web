@@ -13,7 +13,7 @@ import {
   PhoneIcon, ShieldCheckIcon, BriefcaseIcon
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleSolid } from '@heroicons/react/24/solid';
-import frankoLogo from '../assets/frankoIcon.png';
+import frankoLogo from '../assets/frankoIcon-128.webp';
 import mtnLogo from '../assets/momo.png';
 import vodafoneLogo from '../assets/voda.png';
 import airteltigoLogo from '../assets/AT.png';
@@ -22,6 +22,8 @@ import {
   assertOrderDetails, completedOrderRoute, assertOrderAccepted,
   readJSON, removeDraft, detectMoMoNetwork
 } from '../utils/checkoutFlow.mjs';
+
+import { PRODUCT_IMAGE_BASE } from "../config/media";
 
 const price = item => Number(item?.unitPrice ?? item?.UnitPrice ?? item?.price ?? item?.Price ?? 0);
 const qty = item => Number(item?.quantity ?? item?.Quantity ?? 1);
@@ -528,7 +530,7 @@ const netTiles = [
 const money = n => `GH₵${(Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const unit = i => Number(i.unitPrice ?? i.UnitPrice ?? i.price ?? i.Price ?? 0);
 const quantity = i => Number(i.quantity ?? i.Quantity ?? 1);
-const productImage = i => i.imagePath && `https://testing.frankotrading.com/Media/Products_Images/${String(i.imagePath).split('\\').pop()}`;
+const productImage = i => i.imagePath && `${PRODUCT_IMAGE_BASE}${String(i.imagePath).split('\\').pop()}`;
 
 function CheckoutView({ flow }) {
   const navigate = useNavigate();

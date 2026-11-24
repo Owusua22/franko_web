@@ -25,6 +25,8 @@ import { fetchProductsByShowroom } from "../Redux/Slice/productSlice";
 import { CircularPagination } from "../Component/CircularPagination";
 import useAddToCart from "../Component/Cart";
 
+import { PLACEHOLDER_IMAGE, PRODUCT_IMAGE_BASE, productImageUrl } from "../config/media";
+
 /* ============================ CONFIG ============================ */
 
 const SHOWROOM_ID = "a0631779-0be9-4cc3-825d-5b381343859c";
@@ -73,15 +75,7 @@ const formatPrice = (price) => {
   })}`;
 };
 
-const getImageUrl = (path) => {
-  if (!path) return "https://via.placeholder.com/500";
-  if (path.includes("\\")) {
-    return `https://testing.frankotrading.com/Media/Products_Images/${path
-      .split("\\")
-      .pop()}`;
-  }
-  return path;
-};
+const getImageUrl = (path) => productImageUrl(path, { width: 300 });
 
 const getDiscount = (product) => {
   const price = Number(product.price) || 0;

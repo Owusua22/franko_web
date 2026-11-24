@@ -26,8 +26,10 @@ import { CircularPagination } from "../Component/CircularPagination";
 import ProductDetailModal from "../Component/ProductDetailModal";
 import TelCartSidebar from "../Component/TelCartSidebar";
 import useAddToCart from "../Component/Cart";
-import speedLogo from "../assets/frankoIcon.png";
+import speedLogo from "../assets/frankoIcon-128.webp";
 import telecelWhite from "../assets/Telecel White.png";
+
+import { PLACEHOLDER_IMAGE, PRODUCT_IMAGE_BASE, productImageUrl } from "../config/media";
 
 /* ============================ CONFIG ============================ */
 
@@ -73,15 +75,7 @@ const formatPrice = (price) => {
   })}`;
 };
 
-const getImageUrl = (path) => {
-  if (!path) return "https://via.placeholder.com/500";
-  if (path.includes("\\")) {
-    return `https://testing.frankotrading.com/Media/Products_Images/${path
-      .split("\\")
-      .pop()}`;
-  }
-  return path;
-};
+const getImageUrl = (path) => productImageUrl(path, { width: 300 });
 
 const getDiscount = (product) => {
   const price = Number(product.price) || 0;

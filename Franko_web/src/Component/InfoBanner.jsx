@@ -2,11 +2,15 @@ import { peekPublicRead } from "../utils/publicReadCache";
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { getHomePageAdvertisment } from "../Redux/Slice/advertismentSlice";
+import { adImageUrl } from "../config/media";
+
+/** The CMS exports every in-page banner at 1600x645. */
+const AD_WIDTH = 1600;
+const AD_HEIGHT = 645;
 
 const InfoBanner = () => {
   const dispatch = useDispatch();
   const { advertisments } = useSelector((state) => state.advertisment);
-  const backendBaseURL = "https://testing.frankotrading.com";
   const targetFileId = "dceed369-a7fe-4058-8e62-5ab61df74514";
 
   const [homePageAd, setHomePageAd] = useState(() => {
@@ -26,22 +30,42 @@ const InfoBanner = () => {
     }
   }, [advertisments]);
 
-  const imageUrl = homePageAd?.fileName
-    ? `${backendBaseURL}/Media/Ads/${String(homePageAd.fileName).split("\\").pop()}`
-    : "https://via.placeholder.com/1200x400";
+  const imageUrl = adImageUrl(homePageAd?.fileName, { width: AD_WIDTH });
+  const link = homePageAd?.adsNote;
+  const alt = homePageAd?.altText || "Franko Trading promotion";
+
+  /* The banner used to be `<img class="w-full h-auto">` with no intrinsic size
+     and no placeholder, so the page reserved zero height for it and then
+     shifted by the full banner height when the 1600x645 JPEG landed - one of
+     the biggest single sources of the 0.27 CLS. It now reserves the exact
+     aspect ratio up front and stays out of the initial fetch. */
+  const media = (
+    <img
+      src={imageUrl}
+      alt={alt}
+      width={AD_WIDTH}
+      height={AD_HEIGHT}
+      loading="lazy"
+      decoding="async"
+      fetchPriority="low"
+      style={{ width: "100%", height: "auto", aspectRatio: `${AD_WIDTH} / ${AD_HEIGHT}` }}
+      className="block object-cover transition-transform duration-300 group-hover:scale-105"
+    />
+  );
 
   return (
     <div className="mx-auto px-4 md:px-8 mt-3">
-      <a
-        href={homePageAd?.adsNote || "#"}
-        className="block relative h-full overflow-hidden rounded-lg shadow-lg group"
-      >
-        <img
-          src={imageUrl}
-          alt="Advertisement Banner"
-          className="w-full h-auto object-cover transition-transform duration-300 group-hover:scale-105"
-        />
-      </a>
+      {link ? (
+        <a
+          href={link}
+          className="block relative overflow-hidden rounded-lg shadow-lg group"
+          aria-label={`${alt} - open promotion`}
+        >
+          {media}
+        </a>
+      ) : (
+        <div className="block relative overflow-hidden rounded-lg shadow-lg group">{media}</div>
+      )}
     </div>
   );
 };

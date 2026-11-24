@@ -3,12 +3,12 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 
 // Importing image assets directly
-import Samsung from "../assets/samsung.png";
-import infinix from "../assets/infinix.png";
-import tecno from "../assets/tec.png";
-import Hmd from "../assets/hmd.png";
-import itelImg from "../assets/itel.png";
-import Huawei from "../assets/huawel.png";
+import Samsung from "../assets/samsung.webp";
+import infinix from "../assets/infinix.webp";
+import tecno from "../assets/tec.webp";
+import Hmd from "../assets/hmd.webp";
+import itelImg from "../assets/itel.webp";
+import Huawei from "../assets/huawel.webp";
 
 // Brand data with unique UUIDs
 const brands = [
@@ -179,16 +179,25 @@ const BrandsBanner = () => {
           {/* Brand cards */}
           <div className="bb-grid">
             {brands.map((brand) => (
-              <div
+              <button
                 key={brand.id}
+                type="button"
                 onClick={() => handleBrandClick(brand.id)}
                 className="bb-card"
+                aria-label={`Shop ${brand.name} products`}
               >
+                {/* Explicit dimensions: these PNGs used to decode with no
+                    reserved space and nudged the whole section down. */}
                 <img
                   src={brand.src}
                   alt={brand.name}
+                  width={120}
+                  height={48}
+                  loading="lazy"
+                  decoding="async"
+                  style={{ height: 40, width: "auto" }}
                 />
-              </div>
+              </button>
             ))}
           </div>
         </div>
